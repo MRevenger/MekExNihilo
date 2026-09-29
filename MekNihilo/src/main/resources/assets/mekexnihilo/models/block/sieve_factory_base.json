@@ -24,14 +24,14 @@
       ],
       "to": [
         16,
-        16,
+        12,
         4
       ],
       "faces": {
         "north": {
           "uv": [
             0,
-            0,
+            4,
             16,
             16
           ],
@@ -41,7 +41,7 @@
         "east": {
           "uv": [
             4,
-            0,
+            4,
             0,
             16
           ],
@@ -60,7 +60,7 @@
         "west": {
           "uv": [
             0,
-            0,
+            4,
             4,
             16
           ],
@@ -74,8 +74,7 @@
             16,
             4
           ],
-          "texture": "#grid",
-          "cullface": "up"
+          "texture": "#grid"
         },
         "down": {
           "uv": [
@@ -199,7 +198,7 @@
       ],
       "to": [
         15,
-        14,
+        11,
         14
       ],
       "faces": {
@@ -377,45 +376,15 @@
       "name": "shell_01",
       "from": [
         0,
-        14,
+        11,
         4
       ],
       "to": [
         16,
-        16,
+        12,
         16
       ],
       "faces": {
-        "east": {
-          "uv": [
-            16,
-            0,
-            4,
-            2
-          ],
-          "texture": "#side",
-          "cullface": "east"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            2
-          ],
-          "texture": "#back",
-          "cullface": "south"
-        },
-        "west": {
-          "uv": [
-            4,
-            0,
-            16,
-            2
-          ],
-          "texture": "#side",
-          "cullface": "west"
-        },
         "up": {
           "uv": [
             0,
@@ -423,17 +392,7 @@
             16,
             16
           ],
-          "texture": "#grid",
-          "cullface": "up"
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            12
-          ],
-          "texture": "#top"
+          "texture": "#grid"
         }
       }
     },
@@ -446,7 +405,7 @@
       ],
       "to": [
         2,
-        14,
+        12,
         16
       ],
       "faces": {
@@ -499,7 +458,7 @@
       ],
       "to": [
         16,
-        14,
+        12,
         16
       ],
       "faces": {
@@ -538,6 +497,181 @@
             0,
             16,
             12
+          ],
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "name": "rim_north",
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        2
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "name": "rim_south",
+      "from": [
+        0,
+        12,
+        14
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            14,
+            16,
+            16
+          ],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#south",
+          "cullface": "south"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "name": "rim_west",
+      "from": [
+        0,
+        12,
+        2
+      ],
+      "to": [
+        2,
+        16,
+        14
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            2,
+            2,
+            14
+          ],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#side",
+          "cullface": "west"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#top"
+        }
+      }
+    },
+    {
+      "name": "rim_east",
+      "from": [
+        14,
+        12,
+        2
+      ],
+      "to": [
+        16,
+        16,
+        14
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            14,
+            2,
+            16,
+            14
+          ],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#side",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
           ],
           "texture": "#top"
         }

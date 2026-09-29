@@ -160,25 +160,88 @@ emit("electric_sieve",
 // version is installed, and only rewrites the two top faces.
 function factoryBaseModel() {
     const base = JSON.parse(fs.readFileSync(FACTORY_BASE_SRC, "utf8"));
-    // The top of the block is the front lip (z 0..4) plus the main shell lid (z 4..16).
-    const TOPS = {
-        front_panel: [0, 0, 16, 4],
-        shell_01: [0, 4, 16, 16],
-    };
-    let patched = 0;
-    for (const element of base.elements) {
-        const uv = TOPS[element.name];
-        if (!uv || !element.faces.up) {
-            continue;
+    const byName = name => {
+        const found = base.elements.find(e => e.name === name);
+        if (!found) {
+            throw new Error(`Mekanism's factory base model no longer has an element named "${name}"`);
         }
-        // Straight, full-width UVs: texture v now maps linearly onto block z, so the weave drawn
-        // across the middle 80% of the texture lands on the middle 80% of the top face.
-        element.faces.up = { uv, texture: "#grid", cullface: "up" };
-        patched++;
+        return found;
+    };
+    // Quarter block down, matching the Sieve Machine.
+    const F = FLOOR;
+    // Rim thickness. Two units, because that is how thick Mekanism's own side shells are, so the
+    // rim lines up with them instead of leaving a sliver of shell top exposed.
+    const E = 2;
+
+    // The front panel becomes the front wall of the recess; its top face also forms the floor at
+    // z 0..4, so the grid has to line up with block z.
+    const front = byName("front_panel");
+    front.to[1] = F;
+    front.faces.up = { uv: [0, 0, 16, 4], texture: "#grid" };
+    // The panel is 12 tall now, so its faces sample the lower 12 rows of the texture.
+    front.faces.north.uv = [0, 4, 16, 16];
+    if (front.faces.east) {
+        front.faces.east.uv = [4, 4, 0, 16];
     }
-    if (patched !== Object.keys(TOPS).length) {
-        throw new Error(`expected ${Object.keys(TOPS).length} top faces, patched ${patched}`);
+    if (front.faces.west) {
+        front.faces.west.uv = [0, 4, 4, 16];
     }
+
+    // Mekanism's lid turns into the recess floor. Only its top face can ever be seen.
+    const lid = byName("shell_01");
+    lid.from = [0, F - 1, 4];
+    lid.to = [16, F, 16];
+    lid.faces = { up: { uv: [0, 4, 16, 16], texture: "#grid" } };
+
+    // Anything that used to reach up to the lid is trimmed so the floor has room underneath.
+    byName("core").to[1] = F - 1;
+    byName("shell_02").to[1] = F;
+    byName("shell_03").to[1] = F;
+
+    // A four-piece rim around the opening. Downward faces are omitted because the floor backs them.
+    const outer = (texture, cullface) => ({ uv: [0, 0, 16, 4], texture, ...(cullface ? { cullface } : {}) });
+    base.elements.push(
+            {
+                name: "rim_north",
+                from: [0, F, 0],
+                to: [16, 16, E],
+                faces: {
+                    up: { uv: [0, 0, 16, E], texture: "#top", cullface: "up" },
+                    north: outer("#front"),
+                    south: outer("#top"),
+                },
+            },
+            {
+                name: "rim_south",
+                from: [0, F, 16 - E],
+                to: [16, 16, 16],
+                faces: {
+                    up: { uv: [0, 16 - E, 16, 16], texture: "#top", cullface: "up" },
+                    south: outer("#south", "south"),
+                    north: outer("#top"),
+                },
+            },
+            {
+                name: "rim_west",
+                from: [0, F, E],
+                to: [E, 16, 16 - E],
+                faces: {
+                    up: { uv: [0, E, E, 16 - E], texture: "#top", cullface: "up" },
+                    west: outer("#side", "west"),
+                    east: outer("#top"),
+                },
+            },
+            {
+                name: "rim_east",
+                from: [16 - E, F, E],
+                to: [16, 16, 16 - E],
+                faces: {
+                    up: { uv: [16 - E, E, 16, 16 - E], texture: "#top", cullface: "up" },
+                    east: outer("#side", "east"),
+                    west: outer("#top"),
+                },
+            });
+
     base.textures.grid = GRID;
     return base;
 }

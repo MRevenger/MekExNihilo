@@ -12,15 +12,29 @@ import mekanism.common.registration.impl.BlockDeferredRegister;
 import mekanism.common.registration.impl.BlockRegistryObject;
 import mekanism.common.registries.MekanismDataComponents;
 import mekanism.common.resource.BlockResourceInfo;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 
 public class MekExNihiloBlocks {
 
     public static final BlockDeferredRegister BLOCKS = new BlockDeferredRegister(MekExNihilo.MOD_ID);
 
+    /**
+     * Stone-like hardness, and deliberately <em>without</em> {@code requiresCorrectToolForDrops} so the
+     * machines can be broken by hand and still drop.
+     *
+     * <p>Mekanism's {@code BlockBase} constructor that takes a properties <em>modifier</em> starts from
+     * {@code Properties.of().requiresCorrectToolForDrops()}, which is why the modifier form is avoided
+     * here in favour of passing a fully built {@link BlockBehaviour.Properties}.
+     */
+    private static BlockBehaviour.Properties machineProperties() {
+        return BlockBehaviour.Properties.of()
+                .mapColor(BlockResourceInfo.STEEL.getMapColor())
+                .strength(1.5F, 6.0F);
+    }
+
     public static final BlockRegistryObject<BlockTile<TileEntitySieve, Machine<TileEntitySieve>>, ItemBlockTooltip<BlockTile<TileEntitySieve, Machine<TileEntitySieve>>>> ELECTRIC_SIEVE =
             BLOCKS.register("electric_sieve",
-                    () -> new BlockTile<>(MekExNihiloBlockTypes.ELECTRIC_SIEVE,
-                            properties -> properties.mapColor(BlockResourceInfo.STEEL.getMapColor())),
+                    () -> new BlockTile<>(MekExNihiloBlockTypes.ELECTRIC_SIEVE, machineProperties()),
                     (block, properties) -> new ItemBlockTooltip<>(block, true, properties
                             .component(MekanismDataComponents.EJECTOR, AttachedEjector.DEFAULT)
                             .component(MekanismDataComponents.SIDE_CONFIG, AttachedSideConfig.ELECTRIC_MACHINE)));
@@ -40,7 +54,7 @@ public class MekExNihiloBlocks {
     private static BlockRegistryObject<BlockTile<TileEntitySieveFactory, Machine<TileEntitySieveFactory>>, ItemBlockTooltip<BlockTile<TileEntitySieveFactory, Machine<TileEntitySieveFactory>>>> factory(
             String name, Machine<TileEntitySieveFactory> type) {
         return BLOCKS.register(name,
-                () -> new BlockTile<>(type, properties -> properties.mapColor(BlockResourceInfo.STEEL.getMapColor())),
+                () -> new BlockTile<>(type, machineProperties()),
                 (block, properties) -> new ItemBlockTooltip<>(block, true, properties
                         .component(MekanismDataComponents.EJECTOR, AttachedEjector.DEFAULT)
                         .component(MekanismDataComponents.SIDE_CONFIG, AttachedSideConfig.ELECTRIC_MACHINE)));

@@ -13,8 +13,8 @@
 |---|---|---|
 | Minecraft | 1.21.1 | |
 | NeoForge | 21.1.249+ | |
-| Mekanism | 10.7.19.85+ | 必需 |
-| Ex Deorum | 3.10 | 必需，模组 ID `exdeorum` |
+| Mekanism | **10.7.11+** | 必需，模组 ID `mekanism` |
+| Ex Deorum | **3.3+** | 必需，模组 ID `exdeorum` |
 
 Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**。
 
@@ -34,6 +34,41 @@ Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**
 
 ---
 
+
+### 版本范围是怎么定出来的
+
+`javap` 只比对成员名是不够的：Mekanism 在 10.7.x 期间改过**方法签名**
+（例如 `TileEntityMekanism` 的方块参数从 `IBlockProvider` 变成了 `Holder<Block>`），
+这种变化只有真正编译才会暴露。因此本模组的依赖下限是这样测出来的：
+
+1. **编译扫描**（`tools/find_min_version.ps1`）：逐个版本切换依赖并执行 `compileJava`，
+   取仍然能编译的最旧版本。
+2. **API 比对**（`tools/check_versions.ps1`）：用 `javap` 确认依赖的每个类/成员在候选版本中都存在。
+3. **实机验证**：在**最旧可用组合**上启动服务器，实际放置并驱动机器。
+
+实测结果：
+
+| 依赖 | 扫描范围 | 结果 |
+|---|---|---|
+| Ex Deorum | 3.3 ~ 3.12（全部 10 个 1.21.1 版本） | **3.3 起全部可用** |
+| Mekanism | 10.7.0.55 ~ 10.7.19.85（21 个版本） | **10.7.11.76 起可用**；10.7.10.73 及更早编译失败 |
+
+最旧可用组合（**Ex Deorum 3.3 + Mekanism 10.7.11.76**）的实机结果：
+
+```
+electric_sieve          hardness=1.5 requiresCorrectTool=false
+basic_sieve_factory     hardness=1.5 requiresCorrectTool=false
+advanced_sieve_factory  hardness=1.5 requiresCorrectTool=false
+elite_sieve_factory     hardness=1.5 requiresCorrectTool=false
+ultimate_sieve_factory  hardness=1.5 requiresCorrectTool=false
+wrench tag: configurator matches=true tag size=1
+tryWrench -> DISMANTLED removed=true pickedUpIntoInventory=1
+sifting: tier=6 batch=64 consumed=353 outputs=177
+```
+无任何 `NoSuchMethodError` / `NoClassDefFoundError`。
+
+构建时**针对最旧版本编译**（Ex Deorum 3.3 / Mekanism 10.7.11.76），
+因此产物字节码只引用这些版本就已存在的 API。
 ## 2. 机器：筛矿机 (Sieve Machine)
 
 - 注册名：`mekexnihilo:electric_sieve`
@@ -84,12 +119,11 @@ Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**
   顶部筛网为 **4×4 中等密度白色网格，覆盖顶面中间约 80%**。
   **筛矿机的筛面是真正的几何凹陷**：顶面向内下沉 **1/4 格**（4/16 单位），
   四周留出机壳边框，所以能看出真实的凹槽而不是画上去的阴影。
-  **工厂**沿用通用机械的工厂外壳（保留管线、端口与等级 LED），
-  但通用机械把工厂顶面拆成两块、各用一套 UV（`front_panel` 取贴图 12~16 行、
-  `shell_01` 取 0~12 行且旋转 180°），直接替换贴图会被拉伸错位。
-  因此生成时会读取通用机械的基础模型，把这两个顶面的 UV 改为
-  **v 线性映射到方块 z**，再输出为 `sieve_factory_base`，网格就能正确覆盖中间 80%。
-  工厂的凹陷由贴图边缘的深色边框表现（该外壳无法在不重写几何的前提下开孔）。
+  **四个工厂的顶面同样是真实几何凹陷**：生成资源时会读取通用机械的工厂基础模型，
+  把顶盖（`shell_01`）压成凹槽底、前面板（`front_panel`）压到同一高度，
+  再把 `core` / `shell_02` / `shell_03` 相应截短，最后补上一圈 y=12~16 的边框。
+  这样凹槽底面正好在 **1/4 格**深处，与筛矿机一致；边框厚度取 2 单位是为了与
+  通用机械自己的侧壳对齐（否则会露出一条侧壳顶面）。管线、端口与等级 LED 全部保留。
 
   各等级的配色来自通用机械自己的 LED 层：`factory/led` 贴图有 4 条横带
   （绿/橙红/蓝/紫），每个等级通过 `front_led/<tier>` 采样对应的一行，
@@ -234,7 +268,23 @@ ServerEvents.recipes(event => {
 
 ---
 
-## 3. 配置文件
+
+### 挖掘与拆取
+
+- **硬度**：所有机器都是**石头硬度（1.5）且不需要正确工具**，空手即可挖掉并掉落。
+  通用机械自己的方块会强制 `requiresCorrectToolForDrops()`，本模组刻意绕开了这一点
+  （改用接收完整 `Properties` 的构造器）。同时加入了 `minecraft:mineable/pickaxe` 标签，
+  用镐挖会更快，但不用镐也能挖。
+- **扳手拆取**：除通用机械自带的「配置器（扳手模式）」外，**任何属于通用扳手标签
+  `c:tools/wrench` 的工具**都能潜行右键直接拆下机器并放进背包。
+  通用机械原本只认自己的配置器或显式声明了扳手能力的物品，其它模组的扳手在机器上无效。
+
+### 配置界面语言
+
+配置界面完全使用 NeoForge 内置编辑器，翻译键格式为
+`mekexnihilo.configuration.<分组>.<键>`（悬浮提示为再加 `.tooltip`）。
+`zh_cn.json` 与 `en_us.json` 都已补全全部条目，因此在「模组列表 → MekExNihilo → Config」
+里看到的是中文标签与说明，而不是原始键名。## 3. 配置文件
 
 位置：`config/mekexnihilo-common.toml`（`COMMON` 类型）。
 

@@ -33,9 +33,11 @@ import mekanism.common.tile.component.TileComponentEjector;
 import mekanism.common.tile.component.config.ConfigInfo;
 import mekanism.common.tile.component.config.DataType;
 import mekanism.common.tile.component.config.slot.InventorySlotInfo;
+import mekanism.common.tile.base.WrenchResult;
 import mekanism.common.tile.prefab.TileEntityConfigurableMachine;
 import mekanism.common.upgrade.IUpgradeData;
 import mekanism.common.util.MekanismUtils;
+import mekanism.common.util.WorldUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
@@ -44,6 +46,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
@@ -51,6 +54,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.Tags;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import thedarkcolour.exdeorum.recipe.sieve.SieveRecipe;
@@ -644,6 +648,29 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         operatingTicks = tag.getInt(NBT_OPERATING_TICKS);
         ticksRequired = tag.contains(NBT_TICKS_REQUIRED) ? tag.getInt(NBT_TICKS_REQUIRED) : MekExNihiloConfig.baseTicks();
         workDirty = true;
+    }
+
+    // ------------------------------------------------------------------
+    // Wrench support
+    // ------------------------------------------------------------------
+
+    /**
+     * Lets any tool in the common wrench tag dismantle this machine, on top of what Mekanism does.
+     *
+     * <p>Mekanism only accepts its own configurator, or items that explicitly expose its wrench item
+     * abilities, so without this a wrench from another mod would do nothing on these machines.
+     */
+    @Override
+    public WrenchResult tryWrench(BlockState state, Player player, ItemStack stack) {
+        WrenchResult result = super.tryWrench(state, player, stack);
+        if (result != WrenchResult.PASS || stack.isEmpty() || getLevel() == null) {
+            return result;
+        }
+        if (player.isShiftKeyDown() && stack.is(Tags.Items.TOOLS_WRENCH)) {
+            WorldUtils.dismantleBlock(state, getLevel(), getBlockPos(), this, player, stack);
+            return WrenchResult.DISMANTLED;
+        }
+        return result;
     }
 
     // ------------------------------------------------------------------
