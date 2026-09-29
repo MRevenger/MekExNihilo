@@ -1,10 +1,12 @@
 package com.mekexnihilo.tile;
 
+import com.mekexnihilo.AllTheCompressedCompat;
 import com.mekexnihilo.ExDeorumCompat;
 import com.mekexnihilo.MekExNihiloConfig;
 import com.mekexnihilo.MekExNihiloTags;
 import com.mekexnihilo.SieveLayout;
 import com.mekexnihilo.api.SieveInputEvent;
+import com.mekexnihilo.inventory.slot.OversizedOutputSlot;
 import com.mekexnihilo.upgrade.SieveUpgradeData;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +49,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
@@ -172,8 +175,10 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         }
 
         for (int i = 0; i < outputSlotCount; i++) {
-            OutputInventorySlot slot = OutputInventorySlot.at(listener,
-                    SieveLayout.outputSlotX(i, outputSlotCount), SieveLayout.outputSlotY(i, outputSlotCount));
+            // Oversized so heavily multiplied compressed yields do not jam the machine.
+            OversizedOutputSlot slot = OversizedOutputSlot.at(listener,
+                    SieveLayout.outputSlotX(i, outputSlotCount), SieveLayout.outputSlotY(i, outputSlotCount),
+                    MekExNihiloConfig.outputSlotLimit());
             outputSlots.add(slot);
             builder.addSlot(slot);
         }
@@ -241,7 +246,7 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
             return sendUpdate;
         }
 
-        energyContainer.extract(energyContainer.getEnergyPerTick(), Action.EXECUTE, AutomationType.INTERNAL);
+        energyContainer.extract(energyPerTick(), Action.EXECUTE, AutomationType.INTERNAL);
         operatingTicks++;
         setActive(true);
 
@@ -330,7 +335,10 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
      * the long run average at exactly {@code base * multiplier}.
      */
     private List<ItemStack> rollDrops(ServerLevel level, ItemStack mesh, ItemStack input) {
-        List<SieveRecipe> recipes = ExDeorumCompat.recipes(level, mesh, input);
+        // A compressed material is sifted with the recipe of the material it is made of.
+        AllTheCompressedCompat.Compressed compressed = AllTheCompressedCompat.resolve(input);
+        ItemStack lookup = compressed == null ? input : compressed.base().getDefaultInstance();
+        List<SieveRecipe> recipes = ExDeorumCompat.recipes(level, mesh, lookup);
         if (recipes.isEmpty()) {
             return List.of();
         }
@@ -338,6 +346,10 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         LootContext context = ExDeorumCompat.emptyLootContext(level);
         RandomSource random = level.getRandom();
         double multiplier = 1.0D + fortuneLevel * MekExNihiloConfig.fortuneBonusPerLevel();
+        if (compressed != null) {
+            // Each compression tier multiplies the yield again.
+            multiplier *= MekExNihiloConfig.compressedYieldMultiplier(compressed.tier());
+        }
 
         List<ItemStack> produced = new ArrayList<>();
         for (SieveRecipe recipe : recipes) {
@@ -437,11 +449,14 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
             return true;
         }
         List<ItemStack> simulated = new ArrayList<>(outputSlots.size());
+        List<Integer> limits = new ArrayList<>(outputSlots.size());
         for (IInventorySlot slot : outputSlots) {
             simulated.add(slot.getStack().copy());
+            // The slot's own limit, not the item's stack size: outputs may be oversized.
+            limits.add(slot.getLimit(slot.getStack()));
         }
         for (ItemStack stack : produced) {
-            if (!simulateInsert(simulated, stack)) {
+            if (!simulateInsert(simulated, limits, stack)) {
                 return false;
             }
         }
@@ -451,18 +466,20 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Mirrors {@link IInventorySlot#insertItem} against a detached list of stacks, so the outcome can
      * be checked before anything is committed.
+     *
+     * <p>{@code limits} carries each output slot's real capacity, because an output slot may hold far
+     * more than a vanilla stack.
      */
-    private static boolean simulateInsert(List<ItemStack> slots, ItemStack stack) {
+    private static boolean simulateInsert(List<ItemStack> slots, List<Integer> limits, ItemStack stack) {
         ItemStack remaining = stack;
         for (int i = 0; i < slots.size() && !remaining.isEmpty(); i++) {
             ItemStack current = slots.get(i);
+            int limit = limits.get(i);
             if (current.isEmpty()) {
-                int limit = remaining.getMaxStackSize();
                 int moved = Math.min(remaining.getCount(), limit);
                 slots.set(i, remaining.copyWithCount(moved));
                 remaining = remaining.copyWithCount(remaining.getCount() - moved);
             } else if (ItemStack.isSameItemSameComponents(current, remaining)) {
-                int limit = Math.min(current.getMaxStackSize(), remaining.getMaxStackSize());
                 int space = limit - current.getCount();
                 if (space > 0) {
                     int moved = Math.min(remaining.getCount(), space);
@@ -478,7 +495,9 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     private boolean hasOutputRoom() {
         for (IInventorySlot slot : outputSlots) {
             ItemStack stack = slot.getStack();
-            if (stack.isEmpty() || stack.getCount() < Math.min(stack.getMaxStackSize(), slot.getLimit(stack))) {
+            // getLimit already accounts for the slot, which may be oversized; do not clamp it to the
+            // item's stack size or a slot holding 64 items would wrongly look full.
+            if (stack.isEmpty() || stack.getCount() < slot.getLimit(stack)) {
                 return true;
             }
         }
@@ -510,7 +529,9 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         double reduction = enchantmentLevel(Enchantments.EFFICIENCY) * MekExNihiloConfig.efficiencyReductionPerLevel();
         // The processing time can never be reduced by more than 100%.
         reduction = Math.min(1.0D, Math.max(0.0D, reduction));
-        return Math.max(1, (int) Math.ceil(base * (1.0D - reduction)));
+        // Compressed materials take proportionally longer.
+        double compressed = MekExNihiloConfig.compressedTimeMultiplier(pendingCompressedTier());
+        return Math.max(1, (int) Math.ceil(base * (1.0D - reduction) * compressed));
     }
 
     /**
@@ -538,7 +559,31 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     }
 
     private boolean hasEnergyForTick() {
-        return energyContainer.getEnergy() >= energyContainer.getEnergyPerTick();
+        return energyContainer.getEnergy() >= energyPerTick();
+    }
+
+    /**
+     * Energy drawn per tick for the batch currently in the input slots.
+     *
+     * <p>Compressed materials cost proportionally more, so the multiplier is derived from the most
+     * compressed item present rather than cached at the start of an operation — otherwise the idle
+     * checks that run before {@link #beginOperation} would use a stale value.
+     */
+    private long energyPerTick() {
+        double multiplier = MekExNihiloConfig.compressedEnergyMultiplier(pendingCompressedTier());
+        return Math.max(1L, (long) Math.ceil(energyContainer.getEnergyPerTick() * multiplier));
+    }
+
+    /** Compression tier of the most compressed item in the input slots, or 0 when there is none. */
+    private int pendingCompressedTier() {
+        int highest = 0;
+        for (IInventorySlot slot : inputSlots) {
+            int tier = AllTheCompressedCompat.tierOf(slot.getStack());
+            if (tier > highest) {
+                highest = tier;
+            }
+        }
+        return highest;
     }
 
     /**
@@ -550,15 +595,35 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
      * the machine runs, so an item the current mesh cannot handle simply waits in the slot.
      */
     private boolean isAcceptableInput(ItemStack stack) {
-        return !stack.isEmpty() && !stack.is(MekExNihiloTags.SIEVE_BLACKLIST);
+        return !stack.isEmpty() && !isBlacklisted(stack);
     }
 
     /** Server-side check against Ex Deorum's actual sifting recipes. */
     private boolean isSiftable(ItemStack input, ItemStack mesh) {
-        if (input.is(MekExNihiloTags.SIEVE_BLACKLIST)) {
+        if (isBlacklisted(input)) {
             return false;
         }
-        return !ExDeorumCompat.recipes(getLevel(), mesh, input).isEmpty();
+        // Compressed materials are resolved to the material they are made of first.
+        ItemStack lookup = input;
+        Item base = AllTheCompressedCompat.baseOf(input);
+        if (base != null) {
+            lookup = base.getDefaultInstance();
+        }
+        return !ExDeorumCompat.recipes(getLevel(), mesh, lookup).isEmpty();
+    }
+
+    /**
+     * Whether an item is excluded by the blacklist tag.
+     *
+     * <p>A compressed material inherits the blacklist entry of the material it holds, so blacklisting
+     * sand also blocks {@code allthecompressed:sand_1x} and its higher tiers.
+     */
+    private boolean isBlacklisted(ItemStack stack) {
+        if (stack.is(MekExNihiloTags.SIEVE_BLACKLIST)) {
+            return true;
+        }
+        Item base = AllTheCompressedCompat.baseOf(stack);
+        return base != null && base.getDefaultInstance().is(MekExNihiloTags.SIEVE_BLACKLIST);
     }
 
     // ------------------------------------------------------------------

@@ -15,6 +15,7 @@
 | NeoForge | 21.1.249+ | |
 | Mekanism | **10.7.11+** | 必需，模组 ID `mekanism` |
 | Ex Deorum | **3.3+** | 必需，模组 ID `exdeorum` |
+| AllTheCompressed | 4.4.0 | **可选**，模组 ID `allthecompressed`；安装后自动启用压缩原料筛选 |
 
 Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**。
 
@@ -284,7 +285,46 @@ ServerEvents.recipes(event => {
 配置界面完全使用 NeoForge 内置编辑器，翻译键格式为
 `mekexnihilo.configuration.<分组>.<键>`（悬浮提示为再加 `.tooltip`）。
 `zh_cn.json` 与 `en_us.json` 都已补全全部条目，因此在「模组列表 → MekExNihilo → Config」
-里看到的是中文标签与说明，而不是原始键名。## 3. 配置文件
+里看到的是中文标签与说明，而不是原始键名。
+### 压缩原料（AllTheCompressed）
+
+安装 [AllTheCompressed](https://github.com/Pdiddy973/AllTheCompressed/releases) 后，本模组可以**对压缩方块进行筛选**，用其基础原料的配方产出并放大结果。
+
+规则是「底数 ^ 压缩层数」。默认底数为 2：
+
+| 输入 | 等同的普通原料 | 产物 | 耗时 | 能耗 |
+|---|---|---|---|---|
+| `minecraft:sand` | 1 | 1 | 1 | 1 |
+| `allthecompressed:sand_1x` | 9 | **2**（2¹） | **2** | **2** |
+| `allthecompressed:sand_2x` | 81 | **4**（2²） | **4** | **4** |
+| `allthecompressed:sand_3x` | 729 | **8**（2³） | **8** | **8** |
+
+产物、耗时、能耗各自有独立的底数配置（`compressedYieldBase` / `compressedTimeBase` /
+`compressedEnergyBase`），可分别调整；总开关为 `enableCompressedSifting`，
+**安装 AllTheCompressed 时默认开启**。
+
+实现上**不依赖 AllTheCompressed**：它没有编译期依赖，也不调用它的任何 API。
+物品通过注册名识别（`allthecompressed:<材料>_<层数>x`），基础原料再回查物品注册表
+（先查 `minecraft:`，再跨命名空间搜索），因此该模组缺失或改版都不会导致崩溃。
+
+> 黑名单标签 `mekexnihilo:sieve_blacklist` 对压缩原料同样生效：
+> 把 `minecraft:sand` 加入黑名单，`allthecompressed:sand_1x` 及其更高层数也会一并被拒绝。
+
+### 输出槽堆叠上限
+
+压缩筛选的产量会成倍增长，原版 64 的堆叠远远放不下，因此**单个输出槽的容量默认提升到 8192**
+（`outputSlotLimit`，可配置 64~8192）。
+
+这一点之所以可行，是因为 Mekanism 本身就支持超大堆叠：它的槽位通过
+`SerializerHelper.saveOversized` 存档，绕开了原版 `ItemStack` 编解码器 1~99 的限制；
+网络同步走 varint，同样没有 99 上限。实测 `stored=8192 / leftover=0 / reloaded=8192`，
+存档往返完好。
+
+> 顺带修掉了一个隐患：输出空间判定原本用 `Math.min(物品堆叠上限, 槽位上限)`，
+> 而物品堆叠上限恒为 64，会让机器在槽位装到 64 个时就误判「放不下」而停机。
+> 现在改用槽位自身的容量，实测单槽可累积到 832 并继续工作。
+
+## 3. 配置文件
 
 位置：`config/mekexnihilo-common.toml`（`COMMON` 类型）。
 

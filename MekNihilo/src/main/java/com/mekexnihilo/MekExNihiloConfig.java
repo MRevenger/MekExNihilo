@@ -2,6 +2,7 @@ package com.mekexnihilo;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -23,6 +24,7 @@ public final class MekExNihiloConfig {
 
     // --- machine ---
     public static final ModConfigSpec.IntValue OUTPUT_SLOTS;
+    public static final ModConfigSpec.IntValue OUTPUT_SLOT_LIMIT;
     public static final ModConfigSpec.IntValue OUTPUT_SLOTS_PER_TIER;
     public static final ModConfigSpec.ConfigValue<List<? extends Integer>> INPUT_SLOTS;
     public static final ModConfigSpec.IntValue BASE_TICKS;
@@ -36,6 +38,21 @@ public final class MekExNihiloConfig {
 
     // --- per mesh tier ---
     public static final ModConfigSpec.ConfigValue<List<? extends Integer>> BATCH_SIZES;
+
+    // --- AllTheCompressed compatibility ---
+    public static final ModConfigSpec.BooleanValue ENABLE_COMPRESSED_SIFTING;
+    public static final ModConfigSpec.DoubleValue COMPRESSED_YIELD_BASE;
+    public static final ModConfigSpec.DoubleValue COMPRESSED_TIME_BASE;
+    public static final ModConfigSpec.DoubleValue COMPRESSED_ENERGY_BASE;
+
+    /**
+     * Mod id of AllTheCompressed. It is an entirely optional companion: the addon recognises its
+     * items by their registry name, so there is no compile or runtime dependency on it.
+     */
+    public static final String ALL_THE_COMPRESSED_MOD_ID = "allthecompressed";
+
+    /** Highest number of items one output slot can hold. */
+    public static final int MAX_OUTPUT_SLOT_LIMIT = 8192;
 
     /** Level of the plain Sieve Machine; the factory tiers are 1..4. */
     public static final int BASE_MACHINE_LEVEL = 0;
@@ -64,6 +81,15 @@ public final class MekExNihiloConfig {
         OUTPUT_SLOTS_PER_TIER = builder
                 .comment("Extra output slots granted per factory tier.")
                 .defineInRange("outputSlotsPerTier", 4, 0, 20);
+
+        OUTPUT_SLOT_LIMIT = builder
+                .comment("Maximum number of items a single output slot can hold.",
+                        "Compressed sifting multiplies the yield heavily, so a slot needs room for far more",
+                        "than a vanilla stack of 64. Mekanism stores such oversized stacks correctly and",
+                        "NeoForge's hard ceiling is 99 per ItemStack, which this deliberately exceeds by",
+                        "using Mekanism's oversized-stack serialisation.",
+                        "Range: 64 - 8192.")
+                .defineInRange("outputSlotLimit", MAX_OUTPUT_SLOT_LIMIT, 64, MAX_OUTPUT_SLOT_LIMIT);
 
         INPUT_SLOTS = builder
                 .comment("Input slots for each machine level, weakest first:",
@@ -142,6 +168,37 @@ public final class MekExNihiloConfig {
 
         builder.pop();
 
+        builder.comment(
+                        "AllTheCompressed compatibility.",
+                        "AllTheCompressed adds items like allthecompressed:sand_1x .. sand_9x, each tier being",
+                        "nine of the previous one. With this enabled the machine recognises such an item,",
+                        "sifts it using the recipe of its base material, and scales the result.",
+                        "A tier N item yields base^N times the normal drops, takes base^N times as long and",
+                        "draws base^N times the energy, with an independent base per axis.",
+                        "The mod itself is entirely optional: it is recognised through item registry names,",
+                        "so nothing breaks when it is absent.")
+                .push("compressed");
+
+        ENABLE_COMPRESSED_SIFTING = builder
+                .comment("Sift compressed materials, scaling yield, time and energy by tier.",
+                        "Defaults to true when AllTheCompressed is installed, false otherwise.")
+                .define("enableCompressedSifting", ModList.get().isLoaded(ALL_THE_COMPRESSED_MOD_ID));
+
+        COMPRESSED_YIELD_BASE = builder
+                .comment("Yield multiplier base. A tier N item gives base^N times the normal drops.",
+                        "2.0 means sand_1x yields 2x and sand_3x yields 8x.")
+                .defineInRange("compressedYieldBase", 2.0D, 1.0D, 64.0D);
+
+        COMPRESSED_TIME_BASE = builder
+                .comment("Processing time multiplier base. A tier N item takes base^N times as long.")
+                .defineInRange("compressedTimeBase", 2.0D, 1.0D, 64.0D);
+
+        COMPRESSED_ENERGY_BASE = builder
+                .comment("Energy multiplier base. A tier N item draws base^N times the energy per tick.")
+                .defineInRange("compressedEnergyBase", 2.0D, 1.0D, 64.0D);
+
+        builder.pop();
+
         SPEC = builder.build();
     }
 
@@ -207,6 +264,32 @@ public final class MekExNihiloConfig {
         return RESPECT_ENCHANTMENT_LIMITS.get();
     }
 
+    /** How many items one output slot may hold. */
+    public static int outputSlotLimit() {
+        return clamp(OUTPUT_SLOT_LIMIT.get(), 64, MAX_OUTPUT_SLOT_LIMIT);
+    }
+
+    public static boolean compressedSiftingEnabled() {
+        return ENABLE_COMPRESSED_SIFTING.get();
+    }
+
+    /** base^tier, used as a multiplier; tiers below 1 mean "not compressed". */
+    private static double compressedMultiplier(double base, int tier) {
+        return tier < 1 ? 1.0D : Math.pow(base, tier);
+    }
+
+    public static double compressedYieldMultiplier(int tier) {
+        return compressedMultiplier(COMPRESSED_YIELD_BASE.get(), tier);
+    }
+
+    public static double compressedTimeMultiplier(int tier) {
+        return compressedMultiplier(COMPRESSED_TIME_BASE.get(), tier);
+    }
+
+    public static double compressedEnergyMultiplier(int tier) {
+        return compressedMultiplier(COMPRESSED_ENERGY_BASE.get(), tier);
+    }
+
     /**
      * Writes the values that were actually loaded to the log.
      *
@@ -228,5 +311,9 @@ public final class MekExNihiloConfig {
         }
         MekExNihilo.LOGGER.info("Config: resolved slot counts for machine levels 0..{}: inputs={} outputs={}",
                 FACTORY_TIERS, inputs, outputs);
+        MekExNihilo.LOGGER.info(
+                "Config: outputSlotLimit={} compressedSifting={} (AllTheCompressed present={}) yieldBase={} timeBase={} energyBase={}",
+                outputSlotLimit(), compressedSiftingEnabled(), ModList.get().isLoaded(ALL_THE_COMPRESSED_MOD_ID),
+                COMPRESSED_YIELD_BASE.get(), COMPRESSED_TIME_BASE.get(), COMPRESSED_ENERGY_BASE.get());
     }
 }
