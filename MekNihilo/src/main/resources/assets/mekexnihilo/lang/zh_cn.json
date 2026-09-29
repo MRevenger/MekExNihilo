@@ -1,0 +1,13 @@
+{
+  "block.mekexnihilo.electric_sieve": "筛矿机",
+  "block.mekexnihilo.basic_sieve_factory": "基础筛矿工厂",
+  "block.mekexnihilo.advanced_sieve_factory": "高级筛矿工厂",
+  "block.mekexnihilo.elite_sieve_factory": "精英筛矿工厂",
+  "block.mekexnihilo.ultimate_sieve_factory": "终极筛矿工厂",
+  "container.mekexnihilo.electric_sieve": "筛矿机",
+  "description.mekexnihilo.electric_sieve": "一台由通用机械能量驱动的筛矿机。放入任意等级的 Ex Deorum（无中生有：天赐）筛网即可自动筛取材料；等级越高的筛网单次处理量越大。",
+  "description.mekexnihilo.sieve_factory": "筛矿机的工厂版本：每个加工周期并行执行多次筛选，并拥有更多输入槽与输出槽。对筛矿机使用通用机械的工厂安装器即可转换，使用更高等级的安装器可继续升级。",
+  "gui.mekexnihilo.batch_size": "单次处理：%s",
+  "gui.mekexnihilo.batch_and_parallel": "单次处理：%s（并行 %s）",
+  "gui.mekexnihilo.input_slots": "输入/输出槽：%s/%s"
+}

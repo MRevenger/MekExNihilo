@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "description": "MekExNihilo resources",
+    "pack_format": 48,
+    "supported_formats": [
+      34,
+      48
+    ]
+  }
+}

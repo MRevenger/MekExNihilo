@@ -1,0 +1,13 @@
+{
+  "block.mekexnihilo.electric_sieve": "Sieve Machine",
+  "block.mekexnihilo.basic_sieve_factory": "Basic Sieve Factory",
+  "block.mekexnihilo.advanced_sieve_factory": "Advanced Sieve Factory",
+  "block.mekexnihilo.elite_sieve_factory": "Elite Sieve Factory",
+  "block.mekexnihilo.ultimate_sieve_factory": "Ultimate Sieve Factory",
+  "container.mekexnihilo.electric_sieve": "Sieve Machine",
+  "description.mekexnihilo.electric_sieve": "A Mekanism powered sieve. Install any Ex Deorum mesh to sift materials automatically; better meshes process more items per operation.",
+  "description.mekexnihilo.sieve_factory": "The factory version of the Sieve Machine: runs several sieving operations in parallel every cycle, and has more input and output slots. Use a Mekanism tier installer on a Sieve Machine to build one, and higher tier installers to upgrade it further.",
+  "gui.mekexnihilo.batch_size": "Per operation: %s",
+  "gui.mekexnihilo.batch_and_parallel": "Per operation: %s  (parallel %s)",
+  "gui.mekexnihilo.input_slots": "In/Out slots: %s/%s"
+}

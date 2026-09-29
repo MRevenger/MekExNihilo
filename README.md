@@ -1,0 +1,472 @@
+# MekExNihilo — 通用机械 × 无中生有：天赐 (Ex Deorum)
+
+一个 **Minecraft 1.21.1 / NeoForge 21.1.249** 的附属模组：把 [Ex Deorum（无中生有：天赐）](https://modrinth.com/mod/ex-deorum) 的筛网做成一台 **通用机械 (Mekanism)** 机器 —— **筛矿机**。
+
+用通用机械的能量自动筛矿，支持任意等级的 Ex Deorum 筛网、效率与时运附魔，全部数值都可以在配置文件里调整。
+机器外观直接使用通用机械的贴图：**筛矿机用富集仓，工厂用富集工厂**。
+
+---
+
+## 1. 依赖
+
+| 模组 | 版本 | 说明 |
+|---|---|---|
+| Minecraft | 1.21.1 | |
+| NeoForge | 21.1.249+ | |
+| Mekanism | 10.7.19.85+ | 必需 |
+| Ex Deorum | 3.10 | 必需，模组 ID `exdeorum` |
+
+Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**。
+
+> **版本兼容性**
+> Ex Deorum 在不同版本之间改过配方查询 API：3.x 是静态的
+> `RecipeUtil.getSieveRecipes(mesh, stack)`，3.12 改成了
+> `RecipeUtil.getCaches(level).getSieveRecipes(...)`。
+> 直接调用其中任何一个，都会在另一个版本上抛 `NoSuchMethodError` 崩溃。
+>
+> 本模组因此**完全不使用 Ex Deorum 的工具类**，改为通过 Ex Deorum 的
+> `exdeorum:sieve` 配方类型直接读取原版 `RecipeManager`，并在本地缓存。
+> **编译目标锁定为 3.10**（实际使用的版本），依赖范围也声明为 `[3.10,)`，
+> 只引用 `ERecipeTypes.SIEVE`、`SieveRecipe`、`EItems`、`EItemTags`
+> 这几个跨版本稳定的类 —— 均已用 `javap` 在 3.10 上逐个确认。
+>
+> 附带好处：这样读到的是**改造过后的**配方表，KubeJS / 数据包增删的筛矿配方会立即生效。
+
+---
+
+## 2. 机器：筛矿机 (Sieve Machine)
+
+- 注册名：`mekexnihilo:electric_sieve`
+- 一台真正的通用机械机器：有能量、侧面配置、安全设置、红石控制、比较器、**升级插槽**（速度/能量等），
+  并且会出现在通用机械自己的创造模式物品栏里。
+- 外观使用通用机械的贴图（筛矿机=富集仓，工厂=富集工厂，自带等级 LED），
+  运行时筛网会发出琥珀色光。
+
+### 槽位
+
+| 槽位 | 数量 | 说明 |
+|---|---|---|
+| 筛网槽 | 1 | 放入任意 Ex Deorum 筛网；只能放筛网，且只能放 1 个 |
+| 输入槽 | **取决于机器等级**（可配置） | 筛矿机 1、基础 3、高级 4、精英 5、终极 8 |
+| 输出槽 | **配置值 + 每级 4 个**（可配置） | 默认 12 / 16 / 20 / 24 / 28 |
+| 能量槽 | 1 | 可放入能量立方 / 电池等物品为机器充能 |
+| 升级槽 | 由通用机械提供 | 速度、能量等升级 |
+
+**筛网槽是独立的「额外 (EXTRA)」槽位组，不属于输入组。**
+在侧面配置界面中：输入槽显示为红色 (INPUT)、输出槽为蓝色 (OUTPUT)、
+筛网槽为黄色 (EXTRA)、能量槽为绿色 (ENERGY)。
+因此管道/漏斗**不会**把筛矿原料塞进筛网槽；只有把某一面显式设置为 EXTRA 时，
+自动化才会去操作筛网槽（方便自动更换筛网）。
+
+**界面会随机器增大**：输入槽排得更宽时窗口变宽；输出槽超过 5 行时网格从 4 列切换为 6 列，
+窗口再相应增高。实测窗口尺寸：筛矿机 192×209，终极筛矿工厂 228×245。
+
+界面右侧有一条**竖直能量条**（通用机械的标准样式），鼠标悬停可看到精确的能量数值；
+左侧的能量槽仍可放入能量立方 / 电池等物品。
+
+### 筛矿工厂与工厂安装器
+
+对筛矿机使用**通用机械的工厂安装器**（基础安装器）即可把它转换为 **基础筛矿工厂**，
+再用高级 / 精英 / 终极安装器逐级升级 —— 与通用机械自家机器的升级流程完全一致。
+
+| 机器 | 输入槽 | 输出槽（默认） | 并行工序 | 下界合金筛网下单次处理量 |
+|---|---|---|---|---|
+| 筛矿机 | 1 | 12 | 1 | 64 |
+| 基础筛矿工厂 | 3 | 16 | 3 | 192 |
+| 高级筛矿工厂 | 4 | 20 | 5 | 320 |
+| 精英筛矿工厂 | 5 | 24 | 7 | 448 |
+| 终极筛矿工厂 | 8 | 28 | 9 | 576 |
+
+- **外观**：直接复用通用机械的模型，**只把顶面换成白色筛网网格**：
+  - 筛矿机 → `mekanism:block/enrichment_chamber`（富集仓）
+  - 四个工厂 → `mekanism:block/factory/enriching/base` + 对应等级的 `front_led`
+    （富集工厂，等级配色由通用机械自己的 LED 层提供：基础=绿、高级=红、精英=蓝、终极=紫）
+  顶部筛网为 **4×4 中等密度白色网格，覆盖顶面中间约 80%**。
+  **筛矿机的筛面是真正的几何凹陷**：顶面向内下沉 **1/4 格**（4/16 单位），
+  四周留出机壳边框，所以能看出真实的凹槽而不是画上去的阴影。
+  **工厂**沿用通用机械的工厂外壳（保留管线、端口与等级 LED），
+  但通用机械把工厂顶面拆成两块、各用一套 UV（`front_panel` 取贴图 12~16 行、
+  `shell_01` 取 0~12 行且旋转 180°），直接替换贴图会被拉伸错位。
+  因此生成时会读取通用机械的基础模型，把这两个顶面的 UV 改为
+  **v 线性映射到方块 z**，再输出为 `sieve_factory_base`，网格就能正确覆盖中间 80%。
+  工厂的凹陷由贴图边缘的深色边框表现（该外壳无法在不重写几何的前提下开孔）。
+
+  各等级的配色来自通用机械自己的 LED 层：`factory/led` 贴图有 4 条横带
+  （绿/橙红/蓝/紫），每个等级通过 `front_led/<tier>` 采样对应的一行，
+  因此基础=绿、高级=红、精英=蓝、终极=紫与原版完全一致。
+- 转换时**机器内的筛网、原料、能量、进度与侧面配置都会保留**；
+  槽位按角色搬运（输入→输入、输出→输出），即使两侧槽位数不同也不会错位。
+- 界面下方会额外显示「单次处理：N（并行 M）」。
+
+> 技术说明：通用机械的安装器要求方块声明 `AttributeUpgradeable`，且方块实体返回非空的
+> 升级数据，转换才会执行。筛矿机**刻意不带等级属性**（`AttributeTier`）——
+> 基础安装器的 `fromTier` 为 `null`，只会匹配没有等级的方块，这一点与通用机械的富集仓一致。
+
+### 合成配方
+
+**筛矿机**（`mekexnihilo:electric_sieve`）—— 中间放**任意 Ex Deorum 筛子**：
+
+```
+铁锭     空      铁锭
+红石   任意筛子   红石
+铁锭     锇锭     铁锭
+```
+
+**四个筛矿工厂**沿用通用机械自家的工厂配方形状（`ACA / IPI / ACA`），
+`P` 为上一级机器，因此整条产线可以像通用机械的工厂一样逐级合成：
+
+| 工厂 | A（合金） | C（电路） | I（材料） | P（上一级） |
+|---|---|---|---|---|
+| 基础筛矿工厂 | `mekanism:alloys/basic` | `c:circuits/basic` | `c:ingots/iron` | 筛矿机 |
+| 高级筛矿工厂 | `mekanism:alloys/infused` | `c:circuits/advanced` | `c:ingots/osmium` | 基础筛矿工厂 |
+| 精英筛矿工厂 | `mekanism:alloys/reinforced` | `c:circuits/elite` | `c:ingots/gold` | 高级筛矿工厂 |
+| 终极筛矿工厂 | `mekanism:alloys/atomic` | `c:circuits/ultimate` | `c:gems/diamond` | 精英筛矿工厂 |
+
+> 「任意筛子」由物品标签 **`mekexnihilo:sieves`** 定义，当前列出 Ex Deorum 的全部 67 个
+> `*_sieve` 物品（含压缩筛）。若只想让普通（非压缩）筛子可用，直接编辑
+> `data/mekexnihilo/tags/item/sieves.json` 即可，无需改代码。
+### 筛网等级
+
+等级顺序直接取自 Ex Deorum 自己的筛网注册顺序
+（与它的配方查看器 `meshOrder` 一致），共 6 级：
+
+| 等级 | 筛网 | Item ID | 单次处理原料数 |
+|---|---|---|---|
+| 1 | 线 | `exdeorum:string_mesh` | 1 |
+| 2 | 燧石 | `exdeorum:flint_mesh` | 4 |
+| 3 | 铁 | `exdeorum:iron_mesh` | 8 |
+| 4 | 金 | `exdeorum:golden_mesh` | 16 |
+| 5 | 钻石 | `exdeorum:diamond_mesh` | 32 |
+| 6 | 下界合金 | `exdeorum:netherite_mesh` | 64 |
+
+筛网通过 Ex Deorum 的 `exdeorum:sieve_meshes` 标签识别。
+数据包 / 其它附属新增的筛网也能放进去，等级按 1 处理。
+
+### 产物
+
+产物完全来自 **Ex Deorum 自己的筛矿配方**（`ERecipeTypes.SIEVE`），
+所以和手动筛子、以及 Ex Deorum 自带的机械筛完全一致，
+并且任何数据包 / KubeJS 改动过的配方都会自动生效。
+
+Ex Deorum 把「掉落概率」编码在配方的 `result_amount`（一个数字提供器，通常是 0/1 概率）里，
+本机器按同样方式对每个匹配配方取样，因此概率模型与 Ex Deorum 完全一致。
+
+### 禁用某些输入原料
+
+> **关于「Ex Deorum 的筛矿事件」**：Ex Deorum **没有**筛矿事件。
+> 它的 `thedarkcolour.exdeorum.event` 包只有一个生命周期监听器 `EventHandler`，
+> 筛矿逻辑本身不触发任何事件。它对 KubeJS 的支持是**配方层面**的
+> （`exdeorum.removeDefaultSieveRecipes(...)`、`sieve_mesh` 配方过滤器、`exdeorum:sieve` 配方 schema）。
+>
+> 因此本模组提供了三种途径，按推荐顺序如下。
+
+#### 1. 物品标签 `mekexnihilo:sieve_blacklist`（推荐，KubeJS 直接可用）
+
+标签里的物品**既不会被机器筛取，也无法放入输入槽**。这是标准物品标签，
+KubeJS 用 `ServerEvents.tags` 就能写，无需任何额外接口：
+
+```js
+// kubejs/server_scripts/sieve_filter.js
+ServerEvents.tags('item', event => {
+    event.add('mekexnihilo:sieve_blacklist', 'minecraft:gravel')
+    event.add('mekexnihilo:sieve_blacklist', '#minecraft:sand')
+})
+```
+
+纯数据包写法（`data/mekexnihilo/tags/item/sieve_blacklist.json`）：
+
+```json
+{ "replace": false, "values": ["minecraft:gravel", "#minecraft:sand"] }
+```
+
+#### 2. 事件 `SieveInputEvent`（条件化过滤）
+
+本模组自己提供的事件，在 NeoForge 事件总线上触发，每次机器准备筛取一批原料时触发一次。
+监听器可以从 `getInputs()` 中移除不需要处理的条目：
+
+```java
+// Java
+NeoForge.EVENT_BUS.addListener(SieveInputEvent.class, event -> {
+    // 例：只有下界合金筛网才允许筛沙子
+    if (event.getMeshTier() < 6) {
+        event.getInputs().removeIf(stack -> stack.is(Items.SAND));
+    }
+});
+```
+
+```js
+// KubeJS（NativeEvents，具体写法随 KubeJS 版本略有差异）
+NativeEvents.onEvent('com.mekexnihilo.api.SieveInputEvent', event => {
+    event.inputs.removeIf(stack => stack.id === 'minecraft:sand')
+})
+```
+
+被过滤掉的原料**不会占用单次处理量**，所以排在它后面的原料仍会正常加工 ——
+不会有「一个被禁用的原料卡住整台机器」的情况。
+
+#### 3. 直接增删 Ex Deorum 的筛矿配方
+
+因为本机器读取的就是 Ex Deorum 的配方缓存，用 KubeJS 增删筛矿配方同样会立即生效：
+
+```js
+ServerEvents.recipes(event => {
+    event.remove({ type: 'exdeorum:sieve', input: 'minecraft:gravel' })
+})
+```
+
+
+### 附魔
+
+把附魔打在**筛网**上（和 Ex Deorum 一样，筛网天然可附魔效率与时运）。
+
+**效率 (Efficiency)**
+- 每级减少加工时间 **5%**（`efficiencyReductionPerLevel`，可配置）。
+- 减少量**最多 100%**：即使附魔等级远超原版上限，处理时间也不会低于 1 tick。
+- 例：效率 V → 100 tick × (1 − 5×5%) = **75 tick**；效率 25 → **1 tick**。
+
+**时运 (Fortune)**
+- 每级提高 **20%** 产量（`fortuneBonusPerLevel`，可配置范围 **5%~50%**）。
+- 实现方式是对 Ex Deorum 配方给出的产量做倍率，并用**概率取整**，
+  因此长期平均产量正好是 `原始产量 × (1 + 时运等级 × 每级加成)`。
+
+> 注：Ex Deorum 自己的机械筛用的是「效率每级 +17% 速度、时运每级 30% 概率追加一次」
+> 的公式。本模组按需求方的规格实现，并且两个数值都可以在配置里改成与 Ex Deorum 一致。
+
+---
+
+## 3. 配置文件
+
+位置：`config/mekexnihilo-common.toml`（`COMMON` 类型）。
+
+> 槽位数量必须客户端与服务端一致，所以这些配置放在 `COMMON` 里。
+> 槽位数量在**机器建立时**读取：修改后新建或重新放置的机器会立刻使用新值，
+> **已经放在世界里的机器保持原来的布局** —— 拆掉重放即可生效。
+> 联机时两端配置需保持一致。
+
+```toml
+[machine]
+    # 筛矿机的输出槽数量
+    outputSlots = 12
+    # 每提升一个工厂等级额外增加的输出槽
+    outputSlotsPerTier = 4
+    # 各机器等级的输入槽数量（筛矿机、基础、高级、精英、终极）
+    inputSlots = [1, 3, 4, 5, 8]
+    # 无效率附魔时一次加工需要的 tick 数
+    baseTicks = 100
+    # 每级效率减少的加工时间比例（0.05 = 5%）
+    efficiencyReductionPerLevel = 0.05
+    # 每级时运提高的产量比例（范围 0.05 ~ 0.50）
+    fortuneBonusPerLevel = 0.2
+    # 运行时每 tick 消耗的能量
+    energyPerTick = 200
+    # 内部能量缓存
+    energyCapacity = 40000
+    # 筛网是否消耗耐久（默认关闭，机器里的筛网永不损坏）
+    damageMesh = false
+    # Ex Deorum 中标记为 by_hand_only 的配方：
+    # false = 机器跳过它们（与 Ex Deorum 自带的机械筛一致）
+    # true  = 机器也处理它们
+    siftByHandOnlyRecipes = false
+    # true = 效率/时运受原版等级上限限制；false = 超过上限继续叠加
+    respectEnchantmentLimits = false
+
+[tiers]
+    # 每个筛网等级单次可处理的原料数，默认 1,4,8,16,32,64
+    batchSizes = [1, 4, 8, 16, 32, 64]
+```
+
+> **游戏内模组菜单查看配置**：本模组注册了 `IConfigScreenFactory` 扩展点，
+> 因此在「模组列表」中选中 **MekExNihilo** 后会出现 **Config** 按钮，
+> 点开就是 NeoForge 自带的配置编辑器，可以直接改并保存，无需手工编辑 toml。
+> 该注册放在仅客户端的类里，专用服务器不会加载客户端的配置界面类。
+> **关于「配置文件未生效」**：早期版本把槽位数缓存在 `static final` 字段里，
+> 那会在类加载时把数值冻结，导致改配置看不到效果。现在改为
+> **每次建立机器时从配置读取**，已用非默认配置实测验证
+> （`inputSlots=[1,2,6,7,9]`、`outputSlots=9`、`outputSlotsPerTier=2`
+> → 实测各机器为 1/9、2/11、6/13、7/15、9/17，完全一致）。
+
+### 给筛网附魔（效率 / 时运）
+
+**1.21 里附魔通过标签声明可用物品**：`效率` 只接受 `#minecraft:enchantable/mining`
+（斧/镐/铲/锄/剪刀），`时运` 只接受 `#minecraft:enchantable/mining_loot`。
+Ex Deorum 的筛网原本不在其中，所以**附魔台不会提供、铁砧也会拒绝附魔书** ——
+筛网上根本没有附魔，机器自然也就没有加成。
+
+本模组把全部 Ex Deorum 筛网加进了这两个标签（`replace: false`，与原本内容合并），
+因此现在可以正常给筛网附上效率与时运。实测：
+
+| 项目 | 结果 |
+|---|---|
+| 筛网可被效率附魔 | ✅ `canEnchant = true` |
+| 筛网可被时运附魔 | ✅ `canEnchant = true` |
+| 效率 V 加工时间 | 100 tick → **75 tick** |
+| 时运 III 每个原料产量 | 1.83 → **3.88** |
+
+> 若你的整合包用 KubeJS 或 `/give` 直接塞附魔，注意 1.21 的写法是
+> `exdeorum:netherite_mesh[minecraft:enchantments={levels:{"minecraft:efficiency":5}}]`，
+> 1.20.4 的 `{Enchantments:[{id:...,lvl:...}]}` 在 1.21 已经无效。
+`respectEnchantmentLimits` 默认为 `false`：因为按「每级 -5%」计算，要达到 100% 减时
+需要等级 20，而原版效率上限只有 V。设为 `true` 则会按原版上限截断。
+
+---
+
+## 4. 从源码构建
+
+需要 **JDK 21**。
+
+```powershell
+# 仓库根目录
+./build.ps1 build          # 等价于在 MekExNihilo/ 下执行 gradlew build
+```
+
+产物：`MekExNihilo/build/libs/mekexnihilo-1.0.0+mc1.21.1.jar`
+
+开发环境运行：
+
+```powershell
+./build.ps1 runClient      # 启动客户端
+./build.ps1 runServer      # 启动服务端
+```
+
+依赖 jar 放在仓库根的 `libs/`：
+
+- `exdeorum-3.10.jar` —— 从 [Modrinth](https://modrinth.com/mod/ex-deorum) 下载
+- `mekanism.jar` / `mekanism-api.jar` —— 由 `build.gradle` 从 ModMaven 自动解析（无需手动放置）
+
+### 构建脚本说明
+
+`build.ps1` 只是对 Gradle 的一层包装，用于处理本机环境的两个特殊情况：
+
+1. 未设置 `JAVA_HOME` —— 脚本会指向本机 JDK 21；
+2. Gradle 默认把原生库和缓存写到 `~/.gradle`，脚本改为使用仓库内的 `.gradle-home/`
+   （通过 `GRADLE_USER_HOME` 与 `-Dorg.gradle.native.dir`）。
+
+如果这两点在你的机器上不是问题，直接使用 `MekExNihilo/gradlew` 也可以。
+
+---
+
+## 5. 工程结构
+
+```
+MekExNihilo/
+├── build.gradle                     ModDevGradle 构建脚本
+├── settings.gradle                  仓库配置（含 ModMaven）
+├── gradle.properties                版本与模组元数据
+└── src/main/
+    ├── java/com/mekexnihilo/
+    │   ├── MekExNihilo.java                   主入口，注册配置与所有 DeferredRegister
+    │   ├── MekExNihiloConfig.java             全部可配置项
+    │   ├── MekExNihiloTags.java               本模组的物品标签（sieve_blacklist）
+    │   ├── ExDeorumCompat.java              Ex Deorum 的筛网识别 / 等级 / 配方查询
+    │   ├── api/SieveInputEvent.java         输入过滤事件（Ex Deorum 没有筛矿事件）
+    │   ├── upgrade/SieveUpgradeData.java    工厂安装器转换时的数据搬运
+    │   ├── SieveLayout.java                 槽位/界面几何，菜单与界面共用
+    │   ├── tile/
+    │   │   ├── TileEntitySieve.java         机器本体与加工逻辑
+    │   │   └── TileEntitySieveFactory.java  工厂版本（并行加工）
+    │   ├── inventory/container/SieveContainer.java   菜单
+    │   ├── client/
+    │   │   ├── MekExNihiloClient.java         界面注册
+    │   │   └── gui/GuiSieve.java            筛矿机界面
+    │   └── registry/                        方块、方块实体、菜单、创造栏、语言键
+    └── resources/
+        ├── META-INF/neoforge.mods.toml
+        ├── pack.mcmeta
+        ├── assets/mekexnihilo/                模型、方块状态、材质、语言文件
+        └── data/mekexnihilo/
+            ├── loot_table/                  掉落表
+            └── tags/item/sieve_blacklist.json   输入黑名单标签（默认空）
+```
+
+设计要点：
+
+- **所有与 Ex Deorum 的耦合都集中在 `ExDeorumCompat`**：筛网标签、等级顺序、配方查询。
+  其余代码不直接依赖 Ex Deorum 的类。
+- **槽位只定义一次**。`TileEntitySieve` 在 `getInitialInventory` 中按 `SieveLayout`
+  给出的坐标创建槽位，`MekanismTileContainer` 会自动把它们变成菜单槽位，
+  界面再用同一套坐标绘制进度条与文字，因此三者不可能错位。
+- **加工逻辑不依赖通用机械的配方系统**。筛矿配方来自 Ex Deorum 的配方缓存而不是
+  Mekanism 的 `RecipeType`，所以直接在 `onUpdateServer` 里处理，并复用 Mekanism 的
+  能量容器、槽位与弹出（ejector）组件。
+- **产物按「单个原料」结算**。高等级筛网一次处理 64 个原料时，产生的掉落物可能超过
+  输出槽容量；逐个结算可以保证「放不下就停下等待」，既不会死锁也不会吞物品。
+
+---
+
+## 6. 已验证内容
+
+在真实 NeoForge 21.1.249 服务端中加载并驱动机器逐个验证：
+
+- 模组正常加载：`Ex Deorum 3.10` / `Mekanism 10.7.19` / `Mekanism Electric Sieve 1.0.0`。
+- **槽位分组**：`EXTRA=[0]`（筛网）、输入槽、输出槽、`ENERGY`（最后一个），
+  输入槽为红色 INPUT、输出槽为蓝色 OUTPUT、筛网槽为黄色 EXTRA、能量槽为绿色 ENERGY。
+- **六种筛网的单次处理量**：1 / 4 / 8 / 16 / 32 / 64（线 / 燧石 / 铁 / 金 / 钻石 / 下界合金）。
+- **配置生效性**（用非默认配置实测：`inputSlots=[1,2,6,7,9]`、`outputSlots=9`、`outputSlotsPerTier=2`）：
+
+  | 机器 | level | 实测输入槽 | 实测输出槽 | 窗口尺寸 |
+  |---|---|---|---|---|
+  | 筛矿机 | 0 | 1 | 9 | 192×209 |
+  | 基础筛矿工厂 | 1 | 2 | 11 | 192×209 |
+  | 高级筛矿工厂 | 2 | 6 | 13 | 192×227 |
+  | 精英筛矿工厂 | 3 | 7 | 15 | 210×227 |
+  | 终极筛矿工厂 | 4 | 9 | 17 | 246×245 |
+
+  数值与配置**逐一吻合**，且窗口随机器增大。
+- **升级搬运按角色进行**：筛矿机（1 输入 / 12 输出）升级为基础工厂（2 输入 / 11 输出）后，
+  筛网仍在筛网槽、沙砾仍在输入槽、钻石仍在输出槽，未发生错位。
+- **产物为货真价实的 Ex Deorum 物品**，且随筛网等级变化：
+  低等级只出 `stone_pebble`、`flint`；高等级开始出 `iron/gold/copper/tin/lead/osmium_ore_chunk`、
+  `diamond`、`emerald`、`lapis_lazuli`、`amethyst_shard`、`raw_gold` 等。
+- 效率 V → **75 tick**；效率 25（超上限）→ **1 tick**（100% 上限生效）；时运 3 产出明显提高。
+- 客户端界面已在实机打开验证：滑块尺寸与上表一致，右侧竖直能量条正常显示，
+  自定义文字按当前机器/筛网状态正确刷新，无任何 `mekexnihilo` 缺失材质 / 模型警告。
+- **输入过滤**：
+  - 数据包标签 `mekexnihilo:sieve_blacklist` 中的沙子被拒绝放入输入槽（`sand=false`）；
+  - `SieveInputEvent` 中剔除的泥土始终未被消耗（400 tick 内触发 80 次，数量保持 16）；
+  - 排在被过滤原料**之后**的沙砾仍正常加工（16 → 0，产出 77 个物品），
+    证明被禁用的原料不会卡住机器。
+- **崩溃修复**：产物 jar 中已**完全不含** `thedarkcolour/exdeorum/recipe/RecipeUtil` 引用
+  （已对 jar 内所有 class 做过字符串检索确认），该崩溃类别已被根除。
+- **工厂安装器**（在 Ex Deorum 3.10 + Mekanism 10.7.19 下实测）：
+  - 筛矿机 `upgradeable=true`、`baseTier=null` —— 满足基础安装器的匹配条件；
+  - `upgradeResult` → `mekexnihilo:basic_sieve_factory`；
+  - 转换后内容保留：筛网仍在、384 个沙砾、5000 FE 能量全部带过去；
+  - 工厂 `processes=3`、`effectiveBatch=192`（下界合金 64 × 3），并正常产出；
+  - 升级链完整：`electric_sieve → basic → advanced → elite → ultimate →（顶级）`。
+
+### 后续修复（均已实测）
+
+- **速度升级**：修复前 `ticksRequired` 一直是 100；根因是升级改变后没有立即重算，
+  现在重写了 `recalculateUpgrades`。实测装上 8 个速度升级后
+  `ticksRequired=10`（`MekanismUtils.getTicks(100)=10`），300 tick 内消耗 28 个原料。
+- **GUI 文字被遮挡**：状态文字原先画在输出槽下方、会被槽位覆盖。
+  现在在机器区与玩家背包之间留出专用状态带（`SieveLayout.INFO_HEIGHT`），
+  实测 5 个等级全部 `bandClear=true`。窗口尺寸：
+  筛矿机 192×220、基础 192×238、高级 192×256、精英 192×238、终极 228×256。
+- **配置读取诊断**：启动时会打印实际读到的配置路径与数值，便于确认配置是否生效：
+  `Config file: .../config/mekexnihilo-common.toml` 与
+  `Config: outputSlots=12 ... inputs=[1, 3, 4, 5, 8] outputs=[12, 16, 20, 24, 28]`。
+- **合成配方**：5 个配方全部加载成功；标签 `mekexnihilo:sieves` 命中 67 个物品，
+  `exdeorum:oak_sieve` 可匹配、`minecraft:gravel` 不匹配。
+- **重命名**：modid `mekexnihilo`、显示名 `MekExNihilo`、配置文件
+  `mekexnihilo-common.toml`；产物 jar 内已无任何 `meknihilo` 残留。
+- **实机客户端验证**（截图确认）：
+  - 筛矿机界面 **192×220**、菜单 **53** 槽；文字「单次处理：64」「输入/输出槽：1/12」
+    完整显示在专用状态带中，**未被任何槽位遮挡**。
+  - 终极筛矿工厂界面 **228×256**、菜单 **76** 槽（8 输入 + 28 输出）；
+    文字显示「单次处理：576（并行 9）」「输入/输出槽：8/28」，
+    6 列 × 5 行的输出网格全部可见。576 = 下界合金 64 × 并行 9。
+  - 顶部白色网格、富集仓机身、等级短条在实机渲染正常，日志中**没有任何 `mekexnihilo`
+    缺失材质 / 模型警告**（其余警告均来自 Ex Deorum 自身的可选联动材质）。
+- **配方可真正合成**（用真实的 3×3 网格交给配方管理器匹配）：
+  - 筛矿机：铁锭 + 红石 + **橡木筛子** + 锇锭 → `mekexnihilo:electric_sieve` ✅
+  - 基础筛矿工厂：`mekanism:alloys/basic` + `c:circuits/basic` + 铁锭 + 筛矿机
+    → `mekexnihilo:basic_sieve_factory` ✅
+  - 注：`mekanism:alloys/basic` 在通用机械里就是 `minecraft:redstone`，
+    所以基础工厂的配方与通用机械自家的基础灌注工厂完全一致。
+
+---
+
+## 7. 许可
+
+MIT（本模组）。Ex Deorum 与 Mekanism 分别遵循其各自的许可。
