@@ -13,6 +13,7 @@
 
   "mekexnihilo.configuration.title": "Sieve Machine settings",
   "mekexnihilo.configuration.machine": "Machine",
+  "mekexnihilo.configuration.machine.tooltip": "Settings for the Sieve Machine and its factory tiers. Slot counts must match on the client and the server.",
   "mekexnihilo.configuration.machine.button": "Edit",
   "mekexnihilo.configuration.machine.outputSlots": "Output slots (Sieve Machine)",
   "mekexnihilo.configuration.machine.outputSlots.tooltip": "Output slots of the plain Sieve Machine. Each factory tier adds 'output slots per tier' on top. Break and replace a machine for a change to take effect.",
@@ -39,6 +40,7 @@
   "mekexnihilo.configuration.machine.respectEnchantmentLimits": "Respect vanilla enchantment caps",
   "mekexnihilo.configuration.machine.respectEnchantmentLimits.tooltip": "Enabled, Efficiency and Fortune are capped at their vanilla maximum level. Disabled (the default), levels above the cap keep stacking, because reaching the 100% processing-time reduction needs Efficiency 20 while the vanilla cap is V.",
   "mekexnihilo.configuration.compressed": "Compressed materials",
+  "mekexnihilo.configuration.compressed.tooltip": "AllTheCompressed compatibility. That mod is entirely optional and this section does nothing without it.",
   "mekexnihilo.configuration.compressed.button": "Edit",
   "mekexnihilo.configuration.compressed.enableCompressedSifting": "Sift compressed materials",
   "mekexnihilo.configuration.compressed.enableCompressedSifting.tooltip": "Recognise AllTheCompressed items (allthecompressed:sand_1x .. sand_9x), sift them with the recipe of their base material and scale the result. On by default when AllTheCompressed is installed. That mod is not a dependency: with it absent this option does nothing.",
@@ -49,6 +51,7 @@
   "mekexnihilo.configuration.compressed.compressedEnergyBase": "Energy multiplier base",
   "mekexnihilo.configuration.compressed.compressedEnergyBase.tooltip": "A tier N compressed item draws base^N times the energy per tick. Default 2.0.",
   "mekexnihilo.configuration.tiers": "Mesh tiers",
+  "mekexnihilo.configuration.tiers.tooltip": "Per mesh tier. Index 1 is the weakest mesh (string), 6 the strongest (netherite).",
   "mekexnihilo.configuration.tiers.button": "Edit",
   "mekexnihilo.configuration.tiers.batchSizes": "Items per operation by mesh tier",
   "mekexnihilo.configuration.tiers.batchSizes.tooltip": "How many input items one operation consumes at each mesh tier, weakest first (string, flint, iron, golden, diamond, netherite). Defaults to 1, 4, 8, 16, 32, 64."

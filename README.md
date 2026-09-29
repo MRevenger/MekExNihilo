@@ -290,14 +290,25 @@ ServerEvents.recipes(event => {
 
 安装 [AllTheCompressed](https://github.com/Pdiddy973/AllTheCompressed/releases) 后，本模组可以**对压缩方块进行筛选**，用其基础原料的配方产出并放大结果。
 
-规则是「底数 ^ 压缩层数」。默认底数为 2：
+规则是**把基础筛矿事件重复执行 `round(底数 ^ 压缩层数)` 次**，而不是把单次产物乘倍。默认底数为 2：
 
-| 输入 | 等同的普通原料 | 产物 | 耗时 | 能耗 |
-|---|---|---|---|---|
-| `minecraft:sand` | 1 | 1 | 1 | 1 |
-| `allthecompressed:sand_1x` | 9 | **2**（2¹） | **2** | **2** |
-| `allthecompressed:sand_2x` | 81 | **4**（2²） | **4** | **4** |
-| `allthecompressed:sand_3x` | 729 | **8**（2³） | **8** | **8** |
+| 输入 | 等同的普通原料 | 事件执行次数 | 平均产物 | 耗时 | 能耗 |
+|---|---|---|---|---|---|
+| `minecraft:sand` | 1 | 1 | 1 | 1 | 1 |
+| `allthecompressed:sand_1x` | 9 | **2**（2¹） | 2 倍 | **2** | **2** |
+| `allthecompressed:sand_2x` | 81 | **4**（2²） | 4 倍 | **4** | **4** |
+| `allthecompressed:sand_3x` | 729 | **8**（2³） | 8 倍 | **8** | **8** |
+
+> **为什么是「重复事件」而不是「乘倍」**：Ex Deorum 的筛矿配方大多把掉落写成一个概率
+> （`BinomialDistributionGenerator`），一次判定只返回 0 或 1。
+> 把这一次判定乘 8，会把「25% 概率掉落」变成「必定掉 8 个」；
+> 而把同一次判定独立重复 8 次，则得到二项分布 —— 均值同样是 8 倍，但保留了原配方的概率特性。
+>
+> 实测（普通沙砾 vs `gravel_3x`，各 24 次单次筛选）：
+> 普通结果为 `[3,2,2,4,3,1,...,0,4,2,1]`（5 种取值），
+> 3 重压缩为 `[24,14,19,18,15,19,...,14,15,22]`（**10 种取值**，范围 14~25 而非 8 的倍数），
+> 均值比 8.30 ≈ 2³。
+| `allthecompressed:sand_3x` | 729 | **8**（2³） | 8 倍 | **8** | **8** |
 
 产物、耗时、能耗各自有独立的底数配置（`compressedYieldBase` / `compressedTimeBase` /
 `compressedEnergyBase`），可分别调整；总开关为 `enableCompressedSifting`，

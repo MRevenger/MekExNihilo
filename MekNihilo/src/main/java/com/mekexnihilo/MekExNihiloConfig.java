@@ -70,16 +70,19 @@ public final class MekExNihiloConfig {
                         "Slot counts are shared by client and server, so both sides must use the same values.",
                         "Slot counts are applied when a machine is built: break and replace an existing machine",
                         "to pick up a changed value.")
+                .translation("mekexnihilo.configuration.machine")
                 .push("machine");
 
         OUTPUT_SLOTS = builder
                 .comment("Output slots of the plain Sieve Machine.",
                         "Each factory tier adds outputSlotsPerTier more, so the Ultimate Sieve Factory has",
                         "outputSlots + 4 * outputSlotsPerTier.")
+                .translation("mekexnihilo.configuration.machine.outputSlots")
                 .defineInRange("outputSlots", 12, 5, 60);
 
         OUTPUT_SLOTS_PER_TIER = builder
                 .comment("Extra output slots granted per factory tier.")
+                .translation("mekexnihilo.configuration.machine.outputSlotsPerTier")
                 .defineInRange("outputSlotsPerTier", 4, 0, 20);
 
         OUTPUT_SLOT_LIMIT = builder
@@ -89,6 +92,7 @@ public final class MekExNihiloConfig {
                         "NeoForge's hard ceiling is 99 per ItemStack, which this deliberately exceeds by",
                         "using Mekanism's oversized-stack serialisation.",
                         "Range: 64 - 8192.")
+                .translation("mekexnihilo.configuration.machine.outputSlotLimit")
                 .defineInRange("outputSlotLimit", MAX_OUTPUT_SLOT_LIMIT, 64, MAX_OUTPUT_SLOT_LIMIT);
 
         INPUT_SLOTS = builder
@@ -96,6 +100,7 @@ public final class MekExNihiloConfig {
                         "Sieve Machine, Basic Sieve Factory, Advanced Sieve Factory,",
                         "Elite Sieve Factory, Ultimate Sieve Factory.",
                         "Defaults: 1, 3, 4, 5, 8. Range per entry: 1 - 12.")
+                .translation("mekexnihilo.configuration.machine.inputSlots")
                 .defineList(
                         "inputSlots",
                         List.of(1, 3, 4, 5, 8),
@@ -104,32 +109,38 @@ public final class MekExNihiloConfig {
 
         BASE_TICKS = builder
                 .comment("Ticks required for one sieving operation with no Efficiency enchantment.")
+                .translation("mekexnihilo.configuration.machine.baseTicks")
                 .defineInRange("baseTicks", 100, 1, 72000);
 
         EFFICIENCY_REDUCTION_PER_LEVEL = builder
                 .comment(
                         "Fraction of processing time removed per level of Efficiency on the mesh.",
                         "0.05 = -5% per level. The total reduction is capped at 100% (never below 1 tick).")
+                .translation("mekexnihilo.configuration.machine.efficiencyReductionPerLevel")
                 .defineInRange("efficiencyReductionPerLevel", 0.05D, 0.0D, 1.0D);
 
         FORTUNE_BONUS_PER_LEVEL = builder
                 .comment(
                         "Relative increase of the drop chance per level of Fortune on the mesh.",
                         "0.20 = +20% yield per level. Range: 0.05 - 0.50.")
+                .translation("mekexnihilo.configuration.machine.fortuneBonusPerLevel")
                 .defineInRange("fortuneBonusPerLevel", 0.20D, 0.05D, 0.50D);
 
         ENERGY_PER_TICK = builder
                 .comment("Energy consumed per tick while the machine is running.")
+                .translation("mekexnihilo.configuration.machine.energyPerTick")
                 .defineInRange("energyPerTick", 200L, 1L, Long.MAX_VALUE);
 
         ENERGY_CAPACITY = builder
                 .comment("Internal energy buffer size.")
+                .translation("mekexnihilo.configuration.machine.energyCapacity")
                 .defineInRange("energyCapacity", 40000L, 1L, Long.MAX_VALUE);
 
         DAMAGE_MESH = builder
                 .comment(
                         "Whether the installed mesh takes durability damage, like the vanilla sieve does.",
                         "Disabled by default so that meshes last forever in the machine.")
+                .translation("mekexnihilo.configuration.machine.damageMesh")
                 .define("damageMesh", false);
 
         SIFT_BY_HAND_ONLY_RECIPES = builder
@@ -137,6 +148,7 @@ public final class MekExNihiloConfig {
                         "Ex Deorum marks some sifting recipes as 'by_hand_only'.",
                         "false - the machine skips them, exactly like Ex Deorum's own Mechanical Sieve.",
                         "true  - the machine also processes them.")
+                .translation("mekexnihilo.configuration.machine.siftByHandOnlyRecipes")
                 .define("siftByHandOnlyRecipes", false);
 
         RESPECT_ENCHANTMENT_LIMITS = builder
@@ -145,6 +157,7 @@ public final class MekExNihiloConfig {
                         "false - Enchantment levels above the vanilla cap keep stacking. This is the default",
                         "        because Efficiency is meant to reach its 100% processing-time reduction cap;",
                         "        the reduction can still never exceed 100%.")
+                .translation("mekexnihilo.configuration.machine.respectEnchantmentLimits")
                 .define("respectEnchantmentLimits", false);
 
         builder.pop();
@@ -154,12 +167,14 @@ public final class MekExNihiloConfig {
                         "Index 1 = the weakest mesh (String), index 6 = the strongest (Netherite).",
                         "The tier is taken from Ex Deorum's own mesh ordering, so the list always lines up",
                         "with the meshes Ex Deorum actually registers.")
+                .translation("mekexnihilo.configuration.tiers")
                 .push("tiers");
 
         BATCH_SIZES = builder
                 .comment(
                         "How many input items a single operation may consume, per mesh tier.",
                         "Defaults: 1, 4, 8, 16, 32, 64.")
+                .translation("mekexnihilo.configuration.tiers.batchSizes")
                 .defineList(
                         "batchSizes",
                         List.of(1, 4, 8, 16, 32, 64),
@@ -173,28 +188,34 @@ public final class MekExNihiloConfig {
                         "AllTheCompressed adds items like allthecompressed:sand_1x .. sand_9x, each tier being",
                         "nine of the previous one. With this enabled the machine recognises such an item,",
                         "sifts it using the recipe of its base material, and scales the result.",
-                        "A tier N item yields base^N times the normal drops, takes base^N times as long and",
-                        "draws base^N times the energy, with an independent base per axis.",
+                        "A tier N item runs the base sifting event base^N times, so it averages base^N times the normal",
+                        "drops while keeping the recipe's own probabilities. It also takes base^N times as long and draws",
+                        "base^N times the energy, with an independent base per axis.",
                         "The mod itself is entirely optional: it is recognised through item registry names,",
                         "so nothing breaks when it is absent.")
+                .translation("mekexnihilo.configuration.compressed")
                 .push("compressed");
 
         ENABLE_COMPRESSED_SIFTING = builder
                 .comment("Sift compressed materials, scaling yield, time and energy by tier.",
                         "Defaults to true when AllTheCompressed is installed, false otherwise.")
+                .translation("mekexnihilo.configuration.compressed.enableCompressedSifting")
                 .define("enableCompressedSifting", ModList.get().isLoaded(ALL_THE_COMPRESSED_MOD_ID));
 
         COMPRESSED_YIELD_BASE = builder
-                .comment("Yield multiplier base. A tier N item gives base^N times the normal drops.",
-                        "2.0 means sand_1x yields 2x and sand_3x yields 8x.")
+                .comment("Yield base. A tier N item repeats the base sifting event round(base^N) times.",
+                        "2.0 means sand_1x repeats it twice and sand_3x eight times, for eight times the average drops.")
+                .translation("mekexnihilo.configuration.compressed.compressedYieldBase")
                 .defineInRange("compressedYieldBase", 2.0D, 1.0D, 64.0D);
 
         COMPRESSED_TIME_BASE = builder
                 .comment("Processing time multiplier base. A tier N item takes base^N times as long.")
+                .translation("mekexnihilo.configuration.compressed.compressedTimeBase")
                 .defineInRange("compressedTimeBase", 2.0D, 1.0D, 64.0D);
 
         COMPRESSED_ENERGY_BASE = builder
                 .comment("Energy multiplier base. A tier N item draws base^N times the energy per tick.")
+                .translation("mekexnihilo.configuration.compressed.compressedEnergyBase")
                 .defineInRange("compressedEnergyBase", 2.0D, 1.0D, 64.0D);
 
         builder.pop();

@@ -346,12 +346,23 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         LootContext context = ExDeorumCompat.emptyLootContext(level);
         RandomSource random = level.getRandom();
         double multiplier = 1.0D + fortuneLevel * MekExNihiloConfig.fortuneBonusPerLevel();
-        if (compressed != null) {
-            // Each compression tier multiplies the yield again.
-            multiplier *= MekExNihiloConfig.compressedYieldMultiplier(compressed.tier());
-        }
+
+        // A compressed material repeats the base recipe rather than scaling one roll. Multiplying the
+        // amount would turn a rare drop into a guaranteed one (a 25% chance rolled once and multiplied
+        // by 8 always yields 2), whereas running the same event eight times keeps the recipe's own
+        // probabilities and averages the same.
+        int repeats = compressed == null ? 1 : compressedRepeats(compressed.tier());
 
         List<ItemStack> produced = new ArrayList<>();
+        for (int repeat = 0; repeat < repeats; repeat++) {
+            rollOnce(recipes, context, random, multiplier, produced);
+        }
+        return produced;
+    }
+
+    /** One pass of every matching recipe: the "sifting event" for a single unit of input. */
+    private static void rollOnce(List<SieveRecipe> recipes, LootContext context, RandomSource random,
+            double multiplier, List<ItemStack> produced) {
         for (SieveRecipe recipe : recipes) {
             if (recipe.byHandOnly && !MekExNihiloConfig.siftByHandOnlyRecipes()) {
                 // Ex Deorum's own mechanical sieve skips these as well.
@@ -369,7 +380,16 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
                 amount -= chunk;
             }
         }
-        return produced;
+    }
+
+    /**
+     * How many times a compressed material repeats the sifting event.
+     *
+     * <p>The configured yield base is a double, but an event can only run a whole number of times, so
+     * the result is rounded. At the default base of 2 this is exactly 2^tier.
+     */
+    private static int compressedRepeats(int tier) {
+        return Math.max(1, (int) Math.round(MekExNihiloConfig.compressedYieldMultiplier(tier)));
     }
 
     private static int applyFortune(int base, double multiplier, RandomSource random) {
