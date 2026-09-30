@@ -7,23 +7,17 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
- * Fired on {@link NeoForge#EVENT_BUS} on the server whenever the Electric Sieve is about to sift a
- * batch of items, before any of them are consumed.
+ * Fired on the server on {@link NeoForge#EVENT_BUS} before a batch of items is sifted and consumed.
  *
- * <p>Ex Deorum itself does not expose a sifting event, so this is the addon's own extension point.
- * It exists so that packs and other mods can veto individual inputs without having to edit Ex
- * Deorum's recipes:
+ * <p>Ex Deorum has no sifting event of its own, so this is the addon's extension point. Use it for
+ * conditional rules (per mesh, per tier, changing over time); to disable an input outright, put it
+ * in the {@code mekexnihilo:sieve_blacklist} item tag instead.
  *
- * <ul>
- *   <li>Java: {@code NeoForge.EVENT_BUS.addListener(SieveInputEvent.class, event -> ...)}
- *   <li>KubeJS: {@code NativeEvents.onEvent('com.mekexnihilo.api.SieveInputEvent', event => ...)}
- * </ul>
+ * <p>Java: {@code NeoForge.EVENT_BUS.addListener(SieveInputEvent.class, event -> ...)}<br>
+ * KubeJS: {@code NativeEvents.onEvent('com.mekexnihilo.api.SieveInputEvent', event => ...)}
  *
- * <p>The simplest way to disable an input globally is the {@code mekexnihilo:sieve_blacklist} item
- * tag instead; this event is for conditional rules (per mesh, per tier, changing over time, ...).
- *
- * <p>The event is not cancelable: removing entries from {@link #getInputs()} lets a listener drop
- * only the inputs it cares about while the rest of the batch still runs.
+ * <p>Not cancelable. Remove entries from {@link #getInputs()} to drop them; the rest of the batch
+ * still runs.
  */
 public class SieveInputEvent extends Event {
 
@@ -55,9 +49,8 @@ public class SieveInputEvent extends Event {
     }
 
     /**
-     * The candidate inputs, one stack per item that would be consumed. Mutable: remove an entry (or
-     * use {@code removeIf}) to stop that item from being sifted in this operation. Removing every
-     * entry simply makes the machine wait for the next cycle.
+     * Candidate inputs, one stack per item that would be consumed. Mutable: removing an entry stops
+     * that item from being sifted this cycle. Removing all of them just makes the machine wait.
      */
     public List<ItemStack> getInputs() {
         return inputs;

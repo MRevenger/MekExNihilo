@@ -69,21 +69,14 @@ import org.jetbrains.annotations.Nullable;
 import thedarkcolour.exdeorum.recipe.sieve.SieveRecipe;
 
 /**
- * The Electric Sieve.
+ * An Ex Deorum sieve driven by Mekanism energy. The mesh goes in its own slot, siftable materials
+ * in the input slots, drops in the output slots.
  *
- * <p>It behaves like an Ex Deorum sieve, but powered by Mekanism energy. A mesh of any tier goes
- * into the dedicated mesh slot, siftable materials go into the input slots and the drops are
- * collected in the output slots.
+ * <p>The mesh tier sets how many items one operation consumes (1, 2, 4, 16, 32, 64). The machine
+ * level sets how many input slots there are. Efficiency on the mesh shortens the processing time
+ * and Fortune raises the yield, each by a configurable amount per level.
  *
- * <ul>
- *   <li>The mesh tier decides how many input items a single operation consumes (1, 4, 8, 16, 32, 64
- *       by default) and how many input slots are usable.
- *   <li>Efficiency on the mesh shortens the processing time by a configurable amount per level.
- *   <li>Fortune on the mesh increases the yield by a configurable amount per level.
- * </ul>
- *
- * <p>The drops themselves come from Ex Deorum's own sifting recipes, so they always match what the
- * equivalent sieve would produce.
+ * <p>Drops come from Ex Deorum's own sifting recipes, so they match the equivalent hand sieve.
  */
 public class TileEntitySieve extends TileEntityConfigurableMachine {
 
@@ -291,8 +284,8 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Recomputes the processing time when the Speed upgrade changes.
      *
-     * <p>Mekanism calls this the moment an upgrade is inserted or removed. Without it the new speed
-     * would only apply from the next operation onwards, which looks like the upgrade does nothing.
+     * <p>Mekanism calls this when an upgrade is inserted or removed. Without it a new speed only
+     * takes effect from the next operation on.
      */
     @Override
     public void recalculateUpgrades(Upgrade upgrade) {
@@ -409,8 +402,7 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * How many times a compressed material repeats the sifting event.
      *
-     * <p>The configured yield base is a double, but an event can only run a whole number of times, so
-     * the result is rounded. At the default base of 2 this is exactly 2^tier.
+     * <p>The yield base is a double but an event runs a whole number of times, so it is rounded.
      */
     private static int compressedRepeats(int tier) {
         long configured = Math.round(MekExNihiloConfig.compressedYieldMultiplier(tier));
@@ -441,15 +433,12 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         }
     }
 
-    // ------------------------------------------------------------------
     // Ejecting
-    // ------------------------------------------------------------------
 
     /**
      * Pushes one whole output slot into the neighbouring inventories, once per tick.
      *
-     * <p>Mekanism's built-in item ejection waits ten ticks after every attempt, which cannot keep up
-     * with a fast factory, so this moves the first non-empty output slot in full every tick instead.
+     * <p>Mekanism's own item ejection waits ten ticks between attempts, which a fast factory outruns.
      */
     private void tickEjection() {
         if (getLevel() == null || getLevel().isClientSide()) {
@@ -612,8 +601,7 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
      * Mirrors {@link IInventorySlot#insertItem} against a detached list of stacks, so the outcome can
      * be checked before anything is committed.
      *
-     * <p>{@code limits} carries each output slot's real capacity, because an output slot may hold far
-     * more than a vanilla stack.
+     * <p>{@code limits} carries each output slot's real capacity, which can exceed a vanilla stack.
      */
     private static boolean simulateInsert(List<ItemStack> slots, List<Integer> limits, ItemStack stack) {
         ItemStack remaining = stack;
@@ -682,8 +670,8 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Reads an enchantment level from the installed mesh.
      *
-     * <p>Enchantments are registry driven since 1.21, so the holder is resolved through the level's
-     * registry access instead of a static field.
+     * <p>The holder is resolved through the level's registry access; enchantments have no static
+     * field any more.
      */
     private int enchantmentLevel(ResourceKey<Enchantment> key) {
         ItemStack mesh = meshSlot.getStack();
@@ -710,9 +698,8 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Energy drawn per tick for the batch currently in the input slots.
      *
-     * <p>Compressed materials cost proportionally more, so the multiplier is derived from the most
-     * compressed item present rather than cached at the start of an operation — otherwise the idle
-     * checks that run before {@link #beginOperation} would use a stale value.
+     * <p>Derived from the most compressed item present rather than cached when an operation starts,
+     * because the idle checks run before {@link #beginOperation} and would use a stale value.
      */
     private long energyPerTick() {
         double multiplier = MekExNihiloConfig.compressedEnergyMultiplier(pendingCompressedTier());
@@ -760,8 +747,8 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Whether an item is excluded by the blacklist tag.
      *
-     * <p>A compressed material inherits the blacklist entry of the material it holds, so blacklisting
-     * sand also blocks {@code allthecompressed:sand_1x} and its higher tiers.
+     * <p>A compressed material inherits the entry of the material it holds, so blacklisting sand also
+     * blocks {@code allthecompressed:sand_1x} and up.
      */
     private boolean isBlacklisted(ItemStack stack) {
         if (stack.is(MekExNihiloTags.SIEVE_BLACKLIST)) {
@@ -867,8 +854,8 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     /**
      * Lets any tool in the common wrench tag dismantle this machine, on top of what Mekanism does.
      *
-     * <p>Mekanism only accepts its own configurator, or items that explicitly expose its wrench item
-     * abilities, so without this a wrench from another mod would do nothing on these machines.
+     * <p>Mekanism only accepts its own configurator or items exposing its wrench abilities, so
+     * another mod's wrench would otherwise do nothing here.
      */
     @Override
     public WrenchResult tryWrench(BlockState state, Player player, ItemStack stack) {
@@ -883,13 +870,9 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
         return result;
     }
 
-    // ------------------------------------------------------------------
-    // Tier installer support
-    //
-    // Mekanism's tier installer only performs a conversion when the block declares
-    // AttributeUpgradeable AND the tile hands back upgrade data, so that the machine's contents
-    // survive being replaced. Both the sieve and its factory variants therefore implement these.
-    // ------------------------------------------------------------------
+    // Tier installer support. Mekanism's installer only converts a block that declares
+    // AttributeUpgradeable and whose tile hands back upgrade data, which is what keeps the machine's
+    // contents across the swap.
 
     @Nullable
     @Override

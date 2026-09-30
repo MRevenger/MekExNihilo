@@ -23,22 +23,15 @@ import thedarkcolour.exdeorum.tag.EItemTags;
 /**
  * Everything that touches Ex Deorum lives here.
  *
- * <p>Ex Deorum's meshes are plain {@link Item}s rather than an enum, so the tier of a mesh is its
- * position in Ex Deorum's own ordering (the same one its recipe viewer uses): string, flint, iron,
- * golden, diamond, netherite.
+ * <p>A mesh is a plain {@link Item}, not an enum, so its tier is its position in Ex Deorum's own
+ * ordering: string, flint, iron, golden, diamond, netherite.
  *
- * <h2>Why this class does not use Ex Deorum's {@code RecipeUtil}</h2>
- *
- * <p>Ex Deorum has changed the shape of its recipe lookup between releases: 3.x exposes
- * {@code RecipeUtil.getSieveRecipes(mesh, stack)} as a static method, while 3.12 replaced it with
- * {@code RecipeUtil.getCaches(level).getSieveRecipes(...)}. Calling either one directly makes the
- * addon crash with {@link NoSuchMethodError} on the other version.
- *
- * <p>Instead the recipes are read straight from the vanilla {@link RecipeManager} using Ex Deorum's
- * {@code exdeorum:sieve} recipe type, and cached here. Everything used by this route
- * ({@code ERecipeTypes.SIEVE}, {@link SieveRecipe}'s public fields and {@code EItems}) has been
- * stable across those versions, and — unlike Ex Deorum's own cache — it automatically picks up any
- * recipe added or removed by a datapack or a KubeJS script.
+ * <p>Recipes are read from the vanilla {@link RecipeManager} through Ex Deorum's {@code
+ * exdeorum:sieve} recipe type rather than through {@code RecipeUtil}. That class changed shape
+ * between releases: 3.x has {@code RecipeUtil.getSieveRecipes(mesh, stack)}, 3.12 replaced it with
+ * {@code RecipeUtil.getCaches(level).getSieveRecipes(...)}. Calling either one directly crashes with
+ * {@link NoSuchMethodError} on the other version. Going through the recipe type also picks up
+ * recipes added or removed by a datapack or a KubeJS script, which Ex Deorum's own cache does not.
  */
 public final class ExDeorumCompat {
 
