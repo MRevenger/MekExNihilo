@@ -1,9 +1,12 @@
-# MekExNihilo — 通用机械 × 无中生有：天赐 (Ex Deorum)
+# MekExNihilo
 
-一个 **Minecraft 1.21.1 / NeoForge 21.1.249** 的附属模组：把 [Ex Deorum（无中生有：天赐）](https://modrinth.com/mod/ex-deorum) 的筛网做成一台 **通用机械 (Mekanism)** 机器 —— **筛矿机**。
+通用机械 × 无中生有：天赐（Ex Deorum）的筛矿机
 
-用通用机械的能量自动筛矿，支持任意等级的 Ex Deorum 筛网、效率与时运附魔，全部数值都可以在配置文件里调整。
-机器外观直接使用通用机械的贴图：**筛矿机用富集仓，工厂用富集工厂**。
+给 Minecraft 1.21.1 / NeoForge 21.1.249 用的附属模组。它把
+[Ex Deorum（无中生有：天赐）](https://modrinth.com/mod/ex-deorum) 的筛网装进一台 Mekanism 机器，
+用通用机械的能量自动筛矿。支持任意等级的 Ex Deorum 筛网和效率、时运附魔，数值都在配置文件里调。
+
+机器贴图直接取自通用机械：筛矿机用富集仓，四个工厂等级用富集工厂。
 
 ---
 
@@ -19,19 +22,7 @@
 
 Ex Deorum 本身只依赖 NeoForge / Minecraft，**不需要额外的库模组**。
 
-> **版本兼容性**
-> Ex Deorum 在不同版本之间改过配方查询 API：3.x 是静态的
-> `RecipeUtil.getSieveRecipes(mesh, stack)`，3.12 改成了
-> `RecipeUtil.getCaches(level).getSieveRecipes(...)`。
-> 直接调用其中任何一个，都会在另一个版本上抛 `NoSuchMethodError` 崩溃。
->
-> 本模组因此**完全不使用 Ex Deorum 的工具类**，改为通过 Ex Deorum 的
-> `exdeorum:sieve` 配方类型直接读取原版 `RecipeManager`，并在本地缓存。
-> **编译目标锁定为 3.10**（实际使用的版本），依赖范围也声明为 `[3.10,)`，
-> 只引用 `ERecipeTypes.SIEVE`、`SieveRecipe`、`EItems`、`EItemTags`
-> 这几个跨版本稳定的类 —— 均已用 `javap` 在 3.10 上逐个确认。
->
-> 附带好处：这样读到的是**改造过后的**配方表，KubeJS / 数据包增删的筛矿配方会立即生效。
+Ex Deorum 在版本之间改过配方查询 API，本模组不使用它的工具类，细节见第 6 节。
 
 ---
 
@@ -306,10 +297,10 @@ ServerEvents.recipes(event => {
 > **配置节按需出现**：AllTheCompressed **不是依赖**（连可选运行期依赖都不是），
 > 物品仅靠注册名识别。未安装该模组时，`[compressed]` 整节不会生成、也不会显示。
 
-> **为什么是「重复事件」而不是「乘倍」**：Ex Deorum 的筛矿配方大多把掉落写成一个概率
+> Ex Deorum 的筛矿配方大多把掉落写成一个概率
 > （`BinomialDistributionGenerator`），一次判定只返回 0 或 1。
-> 把这一次判定乘 8，会把「25% 概率掉落」变成「必定掉 8 个」；
-> 而把同一次判定独立重复 8 次，则得到二项分布 —— 均值同样是 8 倍，但保留了原配方的概率特性。
+> 把这一次判定乘倍数，会把「25% 概率掉落」变成「必定掉若干个」；
+> 把同一次判定独立重复多次，得到的则是二项分布：均值相同，但保留了原配方的概率特性。
 >
 > 实测（普通沙砾 vs `gravel_3x`，各 24 次单次筛选）：
 > 普通结果为 `[3,2,2,4,3,1,...,0,4,2,1]`（5 种取值），
@@ -357,7 +348,7 @@ Mekanism 的弹出组件仍负责侧面配置、GUI 页签与存档。
 压缩筛选的产量会成倍增长，原版 64 的堆叠远远放不下，因此**单个输出槽的容量默认提升到 8192**
 （`outputSlotLimit`，可配置 64~8192）。
 
-这一点之所以可行，是因为 Mekanism 本身就支持超大堆叠：它的槽位通过
+这能成立是因为 Mekanism 本身就支持超大堆叠：它的槽位通过
 `SerializerHelper.saveOversized` 存档，绕开了原版 `ItemStack` 编解码器 1~99 的限制；
 网络同步走 varint，同样没有 99 上限。实测 `stored=8192 / leftover=0 / reloaded=8192`，
 存档往返完好。
@@ -451,7 +442,7 @@ Ex Deorum 的筛网原本不在其中，所以**附魔台不会提供、铁砧�
 ./build.ps1 build          # 等价于在 MekExNihilo/ 下执行 gradlew build
 ```
 
-产物：`MekExNihilo/build/libs/mekexnihilo-1.0.0+mc1.21.1.jar`
+产物：`MekExNihilo/build/libs/mekexnihilo-1.0.4+mc1.21.1.jar`
 
 开发环境运行：
 
@@ -525,77 +516,44 @@ MekExNihilo/
 
 ---
 
-## 6. 已验证内容
+## 6. 开发笔记
 
-在真实 NeoForge 21.1.249 服务端中加载并驱动机器逐个验证：
+几个踩过的坑，供改这个模组的人参考。
 
-- 模组正常加载：`Ex Deorum 3.10` / `Mekanism 10.7.19` / `Mekanism Electric Sieve 1.0.0`。
-- **槽位分组**：`EXTRA=[0]`（筛网）、输入槽、输出槽、`ENERGY`（最后一个），
-  输入槽为红色 INPUT、输出槽为蓝色 OUTPUT、筛网槽为黄色 EXTRA、能量槽为绿色 ENERGY。
-- **六种筛网的单次处理量**：1 / 4 / 8 / 16 / 32 / 64（线 / 燧石 / 铁 / 金 / 钻石 / 下界合金）。
-- **配置生效性**（用非默认配置实测：`inputSlots=[1,2,6,7,9]`、`outputSlots=9`、`outputSlotsPerTier=2`）：
+### Ex Deorum 的配方查询 API 改过签名
 
-  | 机器 | level | 实测输入槽 | 实测输出槽 | 窗口尺寸 |
-  |---|---|---|---|---|
-  | 筛矿机 | 0 | 1 | 9 | 192×209 |
-  | 基础筛矿工厂 | 1 | 2 | 11 | 192×209 |
-  | 高级筛矿工厂 | 2 | 6 | 13 | 192×227 |
-  | 精英筛矿工厂 | 3 | 7 | 15 | 210×227 |
-  | 终极筛矿工厂 | 4 | 9 | 17 | 246×245 |
+3.x 是静态的 `RecipeUtil.getSieveRecipes(mesh, stack)`，3.12 换成了
+`RecipeUtil.getCaches(level).getSieveRecipes(...)`。调用任意一个，在另一个版本上都会
+`NoSuchMethodError` 崩溃。本模组因此不碰它的工具类，改为从 `exdeorum:sieve` 配方类型
+读 `RecipeManager` 并自行缓存。附带好处是读到的是 KubeJS / 数据包改造后的配方表。
 
-  数值与配置**逐一吻合**，且窗口随机器增大。
-- **升级搬运按角色进行**：筛矿机（1 输入 / 12 输出）升级为基础工厂（2 输入 / 11 输出）后，
-  筛网仍在筛网槽、沙砾仍在输入槽、钻石仍在输出槽，未发生错位。
-- **产物为货真价实的 Ex Deorum 物品**，且随筛网等级变化：
-  低等级只出 `stone_pebble`、`flint`；高等级开始出 `iron/gold/copper/tin/lead/osmium_ore_chunk`、
-  `diamond`、`emerald`、`lapis_lazuli`、`amethyst_shard`、`raw_gold` 等。
-- 效率 V → **75 tick**；效率 25（超上限）→ **1 tick**（100% 上限生效）；时运 3 产出明显提高。
-- 客户端界面已在实机打开验证：滑块尺寸与上表一致，右侧竖直能量条正常显示，
-  自定义文字按当前机器/筛网状态正确刷新，无任何 `mekexnihilo` 缺失材质 / 模型警告。
-- **输入过滤**：
-  - 数据包标签 `mekexnihilo:sieve_blacklist` 中的沙子被拒绝放入输入槽（`sand=false`）；
-  - `SieveInputEvent` 中剔除的泥土始终未被消耗（400 tick 内触发 80 次，数量保持 16）；
-  - 排在被过滤原料**之后**的沙砾仍正常加工（16 → 0，产出 77 个物品），
-    证明被禁用的原料不会卡住机器。
-- **崩溃修复**：产物 jar 中已**完全不含** `thedarkcolour/exdeorum/recipe/RecipeUtil` 引用
-  （已对 jar 内所有 class 做过字符串检索确认），该崩溃类别已被根除。
-- **工厂安装器**（在 Ex Deorum 3.10 + Mekanism 10.7.19 下实测）：
-  - 筛矿机 `upgradeable=true`、`baseTier=null` —— 满足基础安装器的匹配条件；
-  - `upgradeResult` → `mekexnihilo:basic_sieve_factory`；
-  - 转换后内容保留：筛网仍在、384 个沙砾、5000 FE 能量全部带过去；
-  - 工厂 `processes=3`、`effectiveBatch=192`（下界合金 64 × 3），并正常产出；
-  - 升级链完整：`electric_sieve → basic → advanced → elite → ultimate →（顶级）`。
+### Mekanism 的弹出器最快每半秒一次
 
-### 后续修复（均已实测）
+`TileComponentEjector` 每次尝试后把 `tickDelay` 设为 10 tick。自动化产线喂不饱这个速度，
+所以物品改由机器自己每 tick 推送；弹出组件只保留侧面配置、GUI 页签和存档。
 
-- **速度升级**：修复前 `ticksRequired` 一直是 100；根因是升级改变后没有立即重算，
-  现在重写了 `recalculateUpgrades`。实测装上 8 个速度升级后
-  `ticksRequired=10`（`MekanismUtils.getTicks(100)=10`），300 tick 内消耗 28 个原料。
-- **GUI 文字被遮挡**：状态文字原先画在输出槽下方、会被槽位覆盖。
-  现在在机器区与玩家背包之间留出专用状态带（`SieveLayout.INFO_HEIGHT`），
-  实测 5 个等级全部 `bandClear=true`。窗口尺寸：
-  筛矿机 192×220、基础 192×238、高级 192×256、精英 192×238、终极 228×256。
-- **配置读取诊断**：启动时会打印实际读到的配置路径与数值，便于确认配置是否生效：
-  `Config file: .../config/mekexnihilo-common.toml` 与
-  `Config: outputSlots=12 ... inputs=[1, 3, 4, 5, 8] outputs=[12, 16, 20, 24, 28]`。
-- **合成配方**：5 个配方全部加载成功；标签 `mekexnihilo:sieves` 命中 67 个物品，
-  `exdeorum:oak_sieve` 可匹配、`minecraft:gravel` 不匹配。
-- **重命名**：modid `mekexnihilo`、显示名 `MekExNihilo`、配置文件
-  `mekexnihilo-common.toml`；产物 jar 内已无任何 `meknihilo` 残留。
-- **实机客户端验证**（截图确认）：
-  - 筛矿机界面 **192×220**、菜单 **53** 槽；文字「单次处理：64」「输入/输出槽：1/12」
-    完整显示在专用状态带中，**未被任何槽位遮挡**。
-  - 终极筛矿工厂界面 **228×256**、菜单 **76** 槽（8 输入 + 28 输出）；
-    文字显示「单次处理：576（并行 9）」「输入/输出槽：8/28」，
-    6 列 × 5 行的输出网格全部可见。576 = 下界合金 64 × 并行 9。
-  - 顶部白色网格、富集仓机身、等级短条在实机渲染正常，日志中**没有任何 `mekexnihilo`
-    缺失材质 / 模型警告**（其余警告均来自 Ex Deorum 自身的可选联动材质）。
-- **配方可真正合成**（用真实的 3×3 网格交给配方管理器匹配）：
-  - 筛矿机：铁锭 + 红石 + **橡木筛子** + 锇锭 → `mekexnihilo:electric_sieve` ✅
-  - 基础筛矿工厂：`mekanism:alloys/basic` + `c:circuits/basic` + 铁锭 + 筛矿机
-    → `mekexnihilo:basic_sieve_factory` ✅
-  - 注：`mekanism:alloys/basic` 在通用机械里就是 `minecraft:redstone`，
-    所以基础工厂的配方与通用机械自家的基础灌注工厂完全一致。
+### 输出槽为什么能超过 64
+
+NeoForge 的 `Item.ABSOLUTE_MAX_STACK_SIZE` 是 99，`ItemStack` 的编解码器把 count 限死在
+1~99，直接用大数字会坏档。Mekanism 的槽位走 `SerializerHelper.saveOversized` 存档、
+varint 同步，两条路径都没有这个上限，8192 才安全。
+
+### 筛网原本不在附魔标签里
+
+Ex Deorum 的筛网没有被加进 `minecraft:enchantable/mining` 与 `mining_loot`，
+不补这两个标签，附在筛网上的效率与时运不会生效。
+
+### 工厂顶面贴图要按 Mekanism 的 UV 拆法改
+
+Mekanism 把工厂的顶面拆成 `front_panel`（uv `[0,12,16,16]`）和旋转 180° 的 `shell_01`，
+直接改 uv 会让顶面纹理糊掉。重写 uv，让 v 线性映射到方块的 z 轴才对。
+
+### 依赖版本范围是怎么定的
+
+`10.7.10.73` 及更早的 Mekanism 编译不过（`Holder<Block>` 不能转 `IBlockProvider`、
+`forSideWithConfig`、`TileEntityTypeRegistryObject<TileEntityMekanism>` 都对不上），
+所以下限是 `10.7.11.76`。Ex Deorum 用 `javap` 逐个核对过 3.3 到 3.12 的 API 面，
+全部可用，下限取 3.3。
 
 ---
 
