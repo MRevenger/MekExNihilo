@@ -559,4 +559,4 @@ Mekanism 把工厂的顶面拆成 `front_panel`（uv `[0,12,16,16]`）和旋转 
 
 ## 7. 许可
 
-MIT（本模组）。Ex Deorum 与 Mekanism 分别遵循其各自的许可。
+MIT，见 [LICENSE](LICENSE)。Ex Deorum 与 Mekanism 分别遵循其各自的许可。
