@@ -46,53 +46,56 @@ rect(0, 0, 4, SIZE, 88, 96, 108, 255);
 rect(0, SIZE - 4, SIZE, 4, 16, 18, 21, 255);
 rect(SIZE - 4, 0, 4, SIZE, 16, 18, 21, 255);
 // Inner recess.
-rect(12, 12, SIZE - 24, SIZE - 24, 30, 34, 39, 255);
-rect(12, 12, SIZE - 24, 2, 20, 22, 26, 255);
-rect(12, 12, 2, SIZE - 24, 20, 22, 26, 255);
+rect(8, 8, SIZE - 16, SIZE - 16, 30, 34, 39, 255);
+rect(8, 8, SIZE - 16, 2, 20, 22, 26, 255);
+rect(8, 8, 2, SIZE - 16, 20, 22, 26, 255);
 
 // Wordmark.
-const draw = (text, x0, y0, scale, [r, g, b]) => {
+// Wordmark, drawn wider than tall so it fills the plate: the width is already at its limit at
+// SCALE, so the glyphs are stretched vertically instead of leaving the plate half empty.
+const draw = (text, x0, y0, sx, sy, [r, g, b]) => {
   let x = x0;
   for (const ch of text) {
     const glyph = FONT[ch];
-    if (!glyph) { x += 4 * scale; continue; }
+    if (!glyph) { x += 4 * sx; continue; }
     for (let gy = 0; gy < 7; gy++) {
       for (let gx = 0; gx < 5; gx++) {
-        if (glyph[gy][gx] === '1') rect(x + gx * scale, y0 + gy * scale, scale, scale, r, g, b, 255);
+        if (glyph[gy][gx] === '1') rect(x + gx * sx, y0 + gy * sy, sx, sy, r, g, b, 255);
       }
     }
-    x += 6 * scale;
+    x += 6 * sx;
   }
   return x;
 };
 
-// "ExNihilo" across the plate, "Mek" raised at its top right.
+// "ExNihilo" across the plate, "Mek" raised at its top right, one rule underneath. The block is
+// centred as a whole so the plate keeps nothing but the wordmark and its rule.
 const SCALE = 5;
+const STRETCH = 9;
 const wordWidth = 'ExNihilo'.length * 6 * SCALE - SCALE;
-const startX = Math.round((SIZE - wordWidth) / 2);
-const startY = 120;
-draw('ExNihilo', startX + 2, startY + 2, SCALE, [10, 11, 13]);
-draw('ExNihilo', startX, startY, SCALE, [214, 220, 228]);
-
+const wordHeight = 7 * STRETCH;
 const SUP = 2;
+const SUP_STRETCH = 3;
 const supWidth = 'Mek'.length * 6 * SUP - SUP;
+const supHeight = 7 * SUP_STRETCH;
+const SUP_GAP = 12;
+const RULE_GAP = 16;
+const RULE_H = 7;
+
+const blockHeight = supHeight + SUP_GAP + wordHeight + RULE_GAP + RULE_H;
+const startX = Math.round((SIZE - wordWidth) / 2);
+const supY = Math.round((SIZE - blockHeight) / 2);
+const startY = supY + supHeight + SUP_GAP;
+
+draw('ExNihilo', startX + 2, startY + 2, SCALE, STRETCH, [10, 11, 13]);
+draw('ExNihilo', startX, startY, SCALE, STRETCH, [214, 220, 228]);
+
 const supX = startX + wordWidth - supWidth;
-const supY = startY - 7 * SUP - 14;
-draw('Mek', supX + 1, supY + 1, SUP, [10, 11, 13]);
-draw('Mek', supX, supY, SUP, [124, 176, 214]);
+draw('Mek', supX + 1, supY + 1, SUP, SUP_STRETCH, [10, 11, 13]);
+draw('Mek', supX, supY, SUP, SUP_STRETCH, [124, 176, 214]);
 
-// Accent bar under the wordmark, Mekanism blue.
-rect(startX, startY + 7 * SCALE + 18, wordWidth, 6, 124, 176, 214, 255);
-
-// Faint sieve grid filling the space below, so the plate does not read as empty.
-for (let gx = 0; gx < 9; gx++) {
-  for (let gy = 0; gy < 2; gy++) {
-    const x = startX + gx * 27;
-    const y = startY + 7 * SCALE + 44 + gy * 27;
-    rect(x, y, 22, 2, 58, 64, 74, 255);
-    rect(x, y, 2, 22, 58, 64, 74, 255);
-  }
-}
+// Accent rule under the wordmark, Mekanism blue.
+rect(startX, startY + wordHeight + RULE_GAP, wordWidth, RULE_H, 124, 176, 214, 255);
 
 // --- PNG encoding ---
 const crcTable = (() => {
