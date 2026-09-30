@@ -10,9 +10,11 @@ import com.mekexnihilo.inventory.slot.OversizedOutputSlot;
 import com.mekexnihilo.upgrade.SieveUpgradeData;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import mekanism.api.Action;
 import mekanism.api.AutomationType;
+import mekanism.api.RelativeSide;
 import mekanism.api.Upgrade;
 import mekanism.api.IContentsListener;
 import mekanism.api.inventory.IInventorySlot;
@@ -41,6 +43,7 @@ import mekanism.common.upgrade.IUpgradeData;
 import mekanism.common.util.MekanismUtils;
 import mekanism.common.util.WorldUtils;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
@@ -55,9 +58,12 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.loot.LootContext;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import thedarkcolour.exdeorum.recipe.sieve.SieveRecipe;
@@ -83,6 +89,17 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
 
     private static final String NBT_OPERATING_TICKS = "operatingTicks";
     private static final String NBT_TICKS_REQUIRED = "ticksRequired";
+
+    /**
+     * Three minutes without managing to eject anything means nothing is draining the machine, so it
+     * only tries once per second from then on instead of every tick. A successful eject resets it.
+     */
+    private static final int IDLE_EJECT_THRESHOLD = 3 * 60 * 20;
+    private static final int IDLE_EJECT_INTERVAL = 20;
+
+    /** Ticks since the last successful eject, and whether the idle throttle is currently engaged. */
+    private int ticksSinceEject;
+    private boolean ejectThrottled;
 
     // Slot counts are read from the config while the inventory is built, never cached in a static
     // field: a static initializer would freeze the values at class-load time, which is what made a
@@ -139,6 +156,10 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
 
         ejectorComponent = new TileComponentEjector(this);
         ejectorComponent.setOutputData(configComponent, TransmissionType.ITEM);
+        // Items are moved by tickEjection() instead. Mekanism's own item ejection waits ten ticks
+        // after every attempt, so it can never move a full slot in a single tick. The component is
+        // still what owns the side configuration, the GUI tab and serialisation.
+        ejectorComponent.setCanEject(type -> type != TransmissionType.ITEM);
     }
 
     @NotNull
@@ -218,6 +239,9 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
     @Override
     protected boolean onUpdateServer() {
         boolean sendUpdate = super.onUpdateServer();
+        // Runs before the idle returns below, so outputs keep flowing out of a machine that is not
+        // currently sifting anything.
+        tickEjection();
 
         int tier = getMeshTier();
         if (tier <= 0) {
@@ -389,7 +413,12 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
      * the result is rounded. At the default base of 2 this is exactly 2^tier.
      */
     private static int compressedRepeats(int tier) {
-        return Math.max(1, (int) Math.round(MekExNihiloConfig.compressedYieldMultiplier(tier)));
+        long configured = Math.round(MekExNihiloConfig.compressedYieldMultiplier(tier));
+        // The count grows exponentially, so a high tier with a large base would roll millions of
+        // times in one tick and stall the server. Clamp it; the cap only bites at tiers whose yield
+        // could not possibly fit in the output slots anyway.
+        long capped = Math.min(configured, MekExNihiloConfig.maxCompressedRepeats());
+        return (int) Math.max(1L, capped);
     }
 
     private static int applyFortune(int base, double multiplier, RandomSource random) {
@@ -410,6 +439,102 @@ public class TileEntitySieve extends TileEntityConfigurableMachine {
                 return;
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Ejecting
+    // ------------------------------------------------------------------
+
+    /**
+     * Pushes one whole output slot into the neighbouring inventories, once per tick.
+     *
+     * <p>Mekanism's built-in item ejection waits ten ticks after every attempt, which cannot keep up
+     * with a fast factory, so this moves the first non-empty output slot in full every tick instead.
+     */
+    private void tickEjection() {
+        if (getLevel() == null || getLevel().isClientSide()) {
+            return;
+        }
+        if (ejectThrottled && getLevel().getGameTime() % IDLE_EJECT_INTERVAL != 0) {
+            return;
+        }
+        if (ejectOutputs() > 0) {
+            ticksSinceEject = 0;
+            ejectThrottled = false;
+        } else if (ticksSinceEject < IDLE_EJECT_THRESHOLD && ++ticksSinceEject >= IDLE_EJECT_THRESHOLD) {
+            // Nothing has taken anything for three minutes, so the machine counts as idle.
+            ejectThrottled = true;
+        }
+    }
+
+    /** True while the idle eject throttle is engaged, i.e. the machine only tries once per second. */
+    public boolean isEjectThrottled() {
+        return ejectThrottled;
+    }
+
+    /** The item side configuration, so integrations and tests can drive the output sides. */
+    public ConfigInfo itemConfig() {
+        return configComponent.getConfig(TransmissionType.ITEM);
+    }
+
+    /** Moves the first non-empty output slot out, returning how many items left the machine. */
+    private int ejectOutputs() {        ConfigInfo itemConfig = configComponent.getConfig(TransmissionType.ITEM);
+        if (itemConfig == null || !itemConfig.isEjecting() || !itemConfig.canEject()) {
+            return 0;
+        }
+        IInventorySlot source = null;
+        for (IInventorySlot slot : outputSlots) {
+            if (!slot.isEmpty()) {
+                source = slot;
+                break;
+            }
+        }
+        if (source == null) {
+            return 0;
+        }
+
+        Direction facing = getDirection();
+        int moved = 0;
+        for (Map.Entry<RelativeSide, DataType> entry : itemConfig.getSideConfig()) {
+            if (entry.getValue() != DataType.OUTPUT) {
+                continue;
+            }
+            moved += pushTo(entry.getKey().getDirection(facing), source);
+            if (source.isEmpty()) {
+                break;
+            }
+        }
+        return moved;
+    }
+
+    /** Offers the source slot's whole contents to the inventory on one side. */
+    private int pushTo(Direction side, IInventorySlot source) {
+        Level level = getLevel();
+        if (level == null) {
+            return 0;
+        }
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK,
+                getBlockPos().relative(side), side.getOpposite());
+        if (handler == null) {
+            return 0;
+        }
+        ItemStack stack = source.getStack();
+        if (stack.isEmpty()) {
+            return 0;
+        }
+        ItemStack remaining = stack.copy();
+        for (int i = 0; i < handler.getSlots() && !remaining.isEmpty(); i++) {
+            remaining = handler.insertItem(i, remaining, false);
+        }
+        int moved = stack.getCount() - remaining.getCount();
+        if (moved > 0) {
+            if (source instanceof BasicInventorySlot basic) {
+                basic.setStackUnchecked(remaining);
+            } else {
+                source.setStack(remaining);
+            }
+        }
+        return moved;
     }
 
     /** Removes a single matching item from the usable input slots. */
