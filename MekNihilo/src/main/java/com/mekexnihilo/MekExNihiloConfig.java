@@ -8,17 +8,12 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 /**
  * All tunables for the Sieve Machine and its factory tiers.
  *
- * <p>The config is {@link net.neoforged.neoforge.common.ModConfig.Type#COMMON} on purpose: the
- * number of input/output slots has to be identical on the client and the server because the menu
- * layout is derived from it.
+ * <p>COMMON, because the slot counts must match on the client and the server: the menu layout is
+ * derived from them. They are read whenever a machine is built and never cached in a static field,
+ * so a changed file applies to the next machine placed or loaded. Machines already in the world
+ * keep their old layout until they are broken and replaced.
  *
- * <p>Slot counts are read every time a machine is built, never cached in a static field, so a
- * changed config file takes effect on the next machine that is placed or loaded. Machines that are
- * already in the world keep the layout they were built with; break and replace them to pick up a
- * new slot count.
- *
- * <p>The {@code compressed} section only exists when AllTheCompressed is installed. That mod is a
- * purely optional companion, so without it the settings are neither written nor shown.
+ * <p>The {@code compressed} section only exists while AllTheCompressed is installed.
  */
 public final class MekExNihiloConfig {
 

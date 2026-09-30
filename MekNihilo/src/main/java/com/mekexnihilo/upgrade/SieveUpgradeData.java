@@ -9,13 +9,11 @@ import net.minecraft.world.item.ItemStack;
  * Carries a machine's contents across a tier-installer conversion (sieve to factory, and factory
  * tier to factory tier).
  *
- * <p>The stacks are stored per slot <em>role</em> rather than by raw index, because the layouts
- * differ between tiers: the plain machine has one input slot and twelve outputs, while the basic
- * factory has three inputs and sixteen outputs. Copying by index would put output items into input
- * slots.
+ * <p>Stacks are keyed by slot role, not raw index, because the layouts differ per tier: the plain
+ * machine has one input and twelve outputs, the basic factory three and sixteen. Copying by index
+ * would drop output items into input slots.
  *
- * <p>The stacks are detached copies rather than references to the live slots, so the data stays
- * valid even though the old block entity is replaced.
+ * <p>They are detached copies, not references, so the data outlives the replaced block entity.
  */
 public class SieveUpgradeData implements IUpgradeData {
 

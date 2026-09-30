@@ -9,9 +9,8 @@ import net.neoforged.neoforge.common.NeoForge;
 /**
  * Fired on the server on {@link NeoForge#EVENT_BUS} before a batch of items is sifted and consumed.
  *
- * <p>Ex Deorum has no sifting event of its own, so this is the addon's extension point. Use it for
- * conditional rules (per mesh, per tier, changing over time); to disable an input outright, put it
- * in the {@code mekexnihilo:sieve_blacklist} item tag instead.
+ * <p>Ex Deorum has no sifting event, so this is the addon's extension point for conditional rules.
+ * To disable an input outright, use the {@code mekexnihilo:sieve_blacklist} item tag.
  *
  * <p>Java: {@code NeoForge.EVENT_BUS.addListener(SieveInputEvent.class, event -> ...)}<br>
  * KubeJS: {@code NativeEvents.onEvent('com.mekexnihilo.api.SieveInputEvent', event => ...)}

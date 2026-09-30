@@ -12,14 +12,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Recognition of AllTheCompressed's compressed materials.
  *
- * <p>AllTheCompressed registers one item per material and tier, named
- * {@code allthecompressed:<material>_<tier>x}, where each tier is nine of the previous one. Its
- * items therefore already encode everything needed, so this class reads the registry name and looks
- * the base material up in the item registry. That keeps AllTheCompressed a <em>fully optional</em>
- * companion: there is no compile dependency and nothing breaks when it is absent.
+ * <p>That mod registers one item per material and tier, named
+ * {@code allthecompressed:<material>_<tier>x} with each tier worth nine of the previous one, so the
+ * registry name already carries everything needed. AllTheCompressed is optional in the strict
+ * sense: nothing is compiled against it and nothing breaks without it.
  *
- * <p>The base material is usually a vanilla item ({@code sand_1x} to {@code minecraft:sand}), but
- * materials from other mods are handled too by falling back to a search across every namespace.
+ * <p>Base materials are usually vanilla ({@code sand_1x} to {@code minecraft:sand}); other
+ * namespaces are covered by a fallback search.
  */
 public final class AllTheCompressedCompat {
 

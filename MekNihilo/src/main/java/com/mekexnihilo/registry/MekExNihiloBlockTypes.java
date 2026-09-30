@@ -15,13 +15,12 @@ import mekanism.common.tier.FactoryTier;
 /**
  * Block type descriptors.
  *
- * <p>Mekanism has no central registry for these: a block type is a plain object that is handed to
- * the block's constructor and read back through the block's attributes.
+ * <p>Mekanism has no registry for these: a block type is a plain object passed to the block's
+ * constructor and read back through the block's attributes.
  *
  * <p>The sieve carries an {@link AttributeUpgradeable} pointing at the basic factory, which is what
- * lets Mekanism's tier installer convert it. Note that the sieve deliberately has <em>no</em>
- * {@link AttributeTier}: the Basic Tier Installer has a {@code null} "from" tier and only matches
- * blocks without one, exactly like Mekanism's Enrichment Chamber.
+ * the tier installer needs. It has no {@link AttributeTier} on purpose: the Basic Tier Installer
+ * has a {@code null} "from" tier and only matches blocks without one, as the Enrichment Chamber does.
  */
 public class MekExNihiloBlockTypes {
 

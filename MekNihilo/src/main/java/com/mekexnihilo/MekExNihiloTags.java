@@ -9,11 +9,8 @@ import net.minecraft.world.item.Item;
 public final class MekExNihiloTags {
 
     /**
-     * Items in this tag are never sifted by the Electric Sieve, and cannot be inserted into its
-     * input slots.
-     *
-     * <p>It is a plain item tag, so it can be filled from a datapack <em>or</em> from a KubeJS
-     * script:
+     * Items in this tag are never sifted and cannot be inserted into the input slots. It is a plain
+     * item tag, so a datapack or a KubeJS script can fill it:
      *
      * <pre>{@code
      * ServerEvents.tags('item', event => {

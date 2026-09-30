@@ -72,11 +72,11 @@ import thedarkcolour.exdeorum.recipe.sieve.SieveRecipe;
  * An Ex Deorum sieve driven by Mekanism energy. The mesh goes in its own slot, siftable materials
  * in the input slots, drops in the output slots.
  *
- * <p>The mesh tier sets how many items one operation consumes (1, 2, 4, 16, 32, 64). The machine
- * level sets how many input slots there are. Efficiency on the mesh shortens the processing time
- * and Fortune raises the yield, each by a configurable amount per level.
+ * <p>The mesh tier sets how many items one operation consumes (1, 2, 4, 16, 32, 64); the machine
+ * level sets how many input slots there are. Efficiency shortens the processing time and Fortune
+ * raises the yield, each by a configurable amount per level.
  *
- * <p>Drops come from Ex Deorum's own sifting recipes, so they match the equivalent hand sieve.
+ * <p>Drops come from Ex Deorum's recipes, so they match the equivalent hand sieve.
  */
 public class TileEntitySieve extends TileEntityConfigurableMachine {
 

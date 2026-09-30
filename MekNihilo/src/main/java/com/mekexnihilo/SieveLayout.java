@@ -3,12 +3,11 @@ package com.mekexnihilo;
 /**
  * Slot geometry shared by the block entity, the menu and the screen.
  *
- * <p>All coordinates are GUI-relative pixels relative to the top-left of the machine area. The menu
- * places the actual slots at these positions and the screen draws its overlays at the same spots,
- * so the two can never drift apart.
+ * <p>Coordinates are GUI-relative pixels from the top-left of the machine area, so the menu's slots
+ * and the screen's overlays cannot drift apart.
  *
- * <p>The window grows with the machine: the input row widens the GUI, and once the output grid
- * would need more than five rows it switches from four to six columns and the height grows again.
+ * <p>The window grows with the machine: the input row widens it, and once the output grid needs
+ * more than five rows it switches from four to six columns and the height grows too.
  */
 public final class SieveLayout {
 
