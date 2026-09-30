@@ -63,13 +63,13 @@ public final class MekExNihiloConfig {
      * Input slots per machine level: Sieve Machine, Basic, Advanced, Elite, Ultimate Sieve Factory.
      * Fixed rather than configurable, because the GUI layout and the menu are derived from it.
      */
-    private static final List<Integer> MACHINE_INPUT_SLOTS = List.of(1, 3, 4, 5, 8);
+    private static final List<Integer> MACHINE_INPUT_SLOTS = List.of(1, 3, 4, 5, 6);
 
     /**
      * Items consumed per operation, per mesh tier, weakest first (string .. netherite). Also fixed:
      * it is the single number that defines how strong each mesh is.
      */
-    private static final List<Integer> MESH_BATCH_SIZES = List.of(1, 4, 8, 16, 32, 64);
+    private static final List<Integer> MESH_BATCH_SIZES = List.of(1, 2, 4, 16, 32, 64);
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();

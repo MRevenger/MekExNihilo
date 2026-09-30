@@ -60,7 +60,7 @@ public final class SieveLayout {
      * Height of the status band between the machine area and the player inventory. The status lines
      * are drawn here, across the full window width, so they can never end up underneath a slot.
      */
-    public static final int INFO_HEIGHT = 26;
+    public static final int INFO_HEIGHT = 4;
 
     /** First status line, and the spacing between them. */
     public static final int INFO_Y = 4;

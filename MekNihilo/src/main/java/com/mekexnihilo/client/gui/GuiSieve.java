@@ -45,20 +45,4 @@ public class GuiSieve extends GuiConfigurableTile<TileEntitySieve, SieveContaine
                 SieveLayout.POWER_BAR_Y));
         addRenderableWidget(new GuiEnergyTab(this, tile.getEnergyContainer(), tile::getActive));
     }
-
-    @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        super.renderBg(graphics, partialTick, mouseX, mouseY);
-        // The status lines are drawn in the band between the machine area and the player inventory,
-        // so they can never end up underneath a slot (which is drawn after the background).
-        int y = SieveLayout.infoY(tile.getOutputSlotCount());
-        Component summary = tile instanceof TileEntitySieveFactory factory
-                ? Component.translatable("gui.mekexnihilo.batch_and_parallel", tile.getEffectiveBatchSize(),
-                        factory.getProcessCount())
-                : Component.translatable("gui.mekexnihilo.batch_size", tile.getEffectiveBatchSize());
-        graphics.drawString(font, summary, leftPos + 8, topPos + y, 0x404040, false);
-        graphics.drawString(font, Component.translatable("gui.mekexnihilo.input_slots",
-                        tile.getTotalInputSlotCount(), tile.getOutputSlotCount()),
-                leftPos + 8, topPos + y + SieveLayout.INFO_LINE, 0x404040, false);
-    }
 }
